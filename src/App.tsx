@@ -62,9 +62,10 @@ interface WaterlineOverlayProps {
   state: QuotaMonitorState;
   onNavigate: (offset: -1 | 1) => void;
   onLogin?: () => void;
+  loginError?: string;
 }
 
-export function WaterlineOverlay({ state, onNavigate, onLogin }: WaterlineOverlayProps) {
+export function WaterlineOverlay({ state, onNavigate, onLogin, loginError }: WaterlineOverlayProps) {
   const supportedSubscriptions = state.subscriptions.filter(
     (subscription): subscription is SupportedSubscription => subscription.status === "supported"
   );
@@ -127,7 +128,7 @@ export function WaterlineOverlay({ state, onNavigate, onLogin }: WaterlineOverla
           ) : (
             <div className="empty-vessel">
               {canLogin ? <LogIn size={30} aria-hidden="true" /> : <MoreHorizontal size={30} aria-hidden="true" />}
-              <p aria-live="polite">{statusText(state)}</p>
+              <p aria-live="polite">{loginError ?? statusText(state)}</p>
               {canLogin && onLogin && (
                 <button className="empty-vessel-login" type="button" onClick={onLogin}>
                   <LogIn size={15} aria-hidden="true" />
@@ -199,14 +200,22 @@ export default function App() {
     [nativeRuntime]
   );
   const [state, setState] = useState<QuotaMonitorState>(() => monitor.getState());
+  const [loginError, setLoginError] = useState<string>();
 
   const openOfficialLogin = useCallback(async () => {
     if (!nativeRuntime) {
       return;
     }
 
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("open_official_login");
+    setLoginError(undefined);
+
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("open_official_login");
+    } catch (error) {
+      console.error("Unable to open the official 3R login window", error);
+      setLoginError("登录窗口打开失败，请重试");
+    }
   }, [nativeRuntime]);
 
   useEffect(() => {
@@ -247,6 +256,7 @@ export default function App() {
       state={state}
       onNavigate={(offset) => monitor.selectAdjacentSupportedSubscription(offset)}
       onLogin={nativeRuntime ? () => void openOfficialLogin() : undefined}
+      loginError={loginError}
     />
   );
 }

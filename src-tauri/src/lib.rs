@@ -195,7 +195,13 @@ fn ensure_official_login_window(
 
     if let Some(window) = app.get_webview_window(LOGIN_WINDOW_LABEL) {
         if visible {
+            window
+                .unminimize()
+                .map_err(|error| error.to_string())?;
             window.show().map_err(|error| error.to_string())?;
+            window
+                .set_always_on_top(true)
+                .map_err(|error| error.to_string())?;
             window.set_focus().map_err(|error| error.to_string())?;
         }
         return Ok(window);
@@ -213,6 +219,7 @@ fn ensure_official_login_window(
         .title("登录 3R")
         .inner_size(480.0, 720.0)
         .min_inner_size(400.0, 520.0)
+        .always_on_top(true)
         .visible(visible)
         .resizable(true)
         .data_directory(profile_directory)
