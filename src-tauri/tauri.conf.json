@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      "csp": "default-src 'self' https://ai.3rcd.com; connect-src ipc: http://ipc.localhost https://ai.3rcd.com wss://ai.3rcd.com; img-src 'self' asset: http://asset.localhost https://ai.3rcd.com data:; style-src 'self' 'unsafe-inline' https://ai.3rcd.com; script-src 'self' 'unsafe-inline' https://ai.3rcd.com"
     }
   },
   "bundle": {
