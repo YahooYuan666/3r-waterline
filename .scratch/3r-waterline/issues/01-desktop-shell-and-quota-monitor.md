@@ -19,8 +19,14 @@
 - 已使用模拟读取器；没有发起 3R 网络请求，也没有持久化账号、密码或会话数据。
 - `npm run test` 通过 9 项测试；`npm run build` 通过；`npm run desktop:build -- --debug` 已生成 Windows 调试版 EXE、MSI 和 NSIS 包。
 - 380 × 480 浏览器窄窗口复核确认无滚动溢出，且 Unsupported 与 Inactive 订阅可通过翻页显示。
+- 256 × 256 逻辑像素视口复核确认：240px 圆瓶四周各有 8px 透明余量，周/月信息均为 13px、700 字重，最长金额行、倒计时和页面均无溢出。
 
 ## 变更记录
 
 - 2026-08-21：按用户确认将悬浮层压缩为透明无标题栏的单个圆形双液仓。周、月金额、上限和 Reset Countdown 均直接显示在瓶内；不再显示“3R 水位”“模拟额度”、外框或外置数据区。
 - 2026-08-21：按用户确认，Overlay Context 只显示并轮询 Supported Subscription；Unsupported Subscription 和 Inactive Subscription 继续保留在内部状态中用于安全判断，但不作为可翻页选项展示。
+- 2026-08-21：按用户要求进一步压缩悬浮窗。默认窗口改为 256 × 256 logical px，圆瓶改为 240px，保留现有 13px 粗体金额与倒计时；详见 `docs/research/compact-overlay-sizing.md` 的官方规范调研与跨平台验收条件。
+
+## Answer
+
+首票的紧凑视觉规格已完成并重新验证。圆瓶可见面积比原 280px 版本减少约 26.5%，窗口占用面积比原 320 × 320 减少 36%，没有缩小用户指定的文字字号或省略金额信息。

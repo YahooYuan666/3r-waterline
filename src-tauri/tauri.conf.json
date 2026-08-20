@@ -13,10 +13,10 @@
     "windows": [
       {
         "title": "3R 水位",
-        "width": 320,
-        "height": 320,
-        "minWidth": 320,
-        "minHeight": 320,
+        "width": 256,
+        "height": 256,
+        "minWidth": 256,
+        "minHeight": 256,
         "resizable": false,
         "fullscreen": false,
         "alwaysOnTop": true,
