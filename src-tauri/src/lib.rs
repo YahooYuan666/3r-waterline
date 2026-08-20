@@ -9,7 +9,7 @@ use tauri::{
 };
 
 const OFFICIAL_HOST: &str = "ai.3rcd.com";
-const SUBSCRIPTIONS_URL: &str = "https://ai.3rcd.com/subscriptions";
+const LOGIN_URL: &str = "https://ai.3rcd.com/login";
 const LOGIN_WINDOW_LABEL: &str = "official-login";
 
 type CaptureStore = Arc<Mutex<Option<String>>>;
@@ -189,9 +189,9 @@ fn ensure_official_login_window(
     capture_store: CaptureStore,
     visible: bool,
 ) -> Result<WebviewWindow, String> {
-    let subscriptions_url = SUBSCRIPTIONS_URL
+    let login_url = LOGIN_URL
         .parse()
-        .map_err(|error| format!("Invalid official subscriptions URL: {error}"))?;
+        .map_err(|error| format!("Invalid official login URL: {error}"))?;
 
     if let Some(window) = app.get_webview_window(LOGIN_WINDOW_LABEL) {
         if visible {
@@ -215,7 +215,7 @@ fn ensure_official_login_window(
     let app_for_capture = app.clone();
     let capture_for_page_load = capture_store.clone();
 
-    WebviewWindowBuilder::new(app, LOGIN_WINDOW_LABEL, WebviewUrl::External(subscriptions_url))
+    WebviewWindowBuilder::new(app, LOGIN_WINDOW_LABEL, WebviewUrl::External(login_url))
         .title("登录 3R")
         .inner_size(480.0, 720.0)
         .min_inner_size(400.0, 520.0)
