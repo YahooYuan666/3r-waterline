@@ -173,7 +173,8 @@ function createNativeSubscriptionsPageReader() {
 
       try {
         const { invoke } = await import("@tauri-apps/api/core");
-        capture = await invoke<SubscriptionPageCapture>("request_subscription_capture");
+        const encodedCapture = await invoke<string>("request_subscription_capture");
+        capture = JSON.parse(encodedCapture) as SubscriptionPageCapture;
       } catch {
         throw new AuthenticationRequiredError();
       }
