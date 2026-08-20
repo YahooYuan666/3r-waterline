@@ -19,3 +19,7 @@
 - 已使用模拟读取器；没有发起 3R 网络请求，也没有持久化账号、密码或会话数据。
 - `npm run test` 通过 9 项测试；`npm run build` 通过；`npm run desktop:build -- --debug` 已生成 Windows 调试版 EXE、MSI 和 NSIS 包。
 - 380 × 480 浏览器窄窗口复核确认无滚动溢出，且 Unsupported 与 Inactive 订阅可通过翻页显示。
+
+## 变更记录
+
+- 2026-08-21：按用户确认将悬浮层压缩为透明无标题栏的单个圆形双液仓。周、月金额、上限和 Reset Countdown 均直接显示在瓶内；不再显示“3R 水位”“模拟额度”、外框或外置数据区。

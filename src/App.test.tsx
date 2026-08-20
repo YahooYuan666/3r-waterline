@@ -39,9 +39,18 @@ describe("WaterlineOverlay", () => {
       updateFailure: undefined
     });
 
-    expect(screen.getByText("$326.54")).toBeTruthy();
-    expect(screen.getByText("$800.57")).toBeTruthy();
-    expect(screen.getByText("4d 1h 后重置")).toBeTruthy();
+    const vessel = screen.getByLabelText("周额度和月额度的剩余水位");
+
+    expect(vessel.textContent).toContain("周");
+    expect(vessel.textContent).toContain("$326.54");
+    expect(vessel.textContent).toContain("/$400.00");
+    expect(vessel.textContent).toContain("4d 1h 后重置");
+    expect(vessel.textContent).toContain("月");
+    expect(vessel.textContent).toContain("$800.57");
+    expect(vessel.textContent).toContain("/$1,600.00");
+    expect(vessel.textContent).toContain("6d 1h 后重置");
+    expect(screen.queryByText("3R 水位")).toBeNull();
+    expect(screen.queryByText("模拟额度")).toBeNull();
   });
 
   it("renders distinct Unverified, failed-update, Unsupported, and Inactive states", () => {
@@ -53,7 +62,7 @@ describe("WaterlineOverlay", () => {
       lastAttemptAt: new Date("2026-08-21T01:00:00.000Z")
     });
 
-    expect(screen.getAllByText("暂时无法验证额度")).toHaveLength(2);
+    expect(screen.getByText("暂时无法验证额度")).toBeTruthy();
 
     rerender(
       <WaterlineOverlay
@@ -67,7 +76,7 @@ describe("WaterlineOverlay", () => {
         onNavigate={vi.fn()}
       />
     );
-    expect(screen.getAllByText("订阅页面格式已变更")).toHaveLength(2);
+    expect(screen.getByText("订阅页面格式已变更")).toBeTruthy();
 
     rerender(
       <WaterlineOverlay
@@ -113,7 +122,7 @@ describe("WaterlineOverlay", () => {
         onNavigate={vi.fn()}
       />
     );
-    expect(screen.getAllByText("此订阅暂不支持")).toHaveLength(2);
+    expect(screen.getByText("此订阅暂不支持")).toBeTruthy();
 
     rerender(
       <WaterlineOverlay
@@ -127,6 +136,6 @@ describe("WaterlineOverlay", () => {
         onNavigate={vi.fn()}
       />
     );
-    expect(screen.getAllByText("订阅已失效")).toHaveLength(2);
+    expect(screen.getByText("订阅已失效")).toBeTruthy();
   });
 });

@@ -89,7 +89,7 @@ function statusText(state: QuotaMonitorState, subscription: Subscription | undef
     return "订阅已失效";
   }
 
-  return "模拟额度";
+  return "额度暂不可用";
 }
 
 interface WaterlineOverlayProps {
@@ -106,49 +106,20 @@ export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
   const selectedSubscription = subscriptions[selectedIndex];
   const quotaSnapshot =
     selectedSubscription?.status === "supported" ? selectedSubscription.quotaSnapshot : undefined;
+  const stateNotice =
+    state.kind === "verified" && state.freshness === "update-failed"
+      ? statusText(state, selectedSubscription)
+      : undefined;
 
   return (
     <main className="waterline-stage">
       <section className="waterline-overlay" aria-label="3R 剩余额度悬浮窗预览">
-        <header className="overlay-header">
-          <div>
-            <p className="product-name">3R 水位</p>
-            <p className="status-copy" aria-live="polite">
-              {statusText(state, selectedSubscription)}
-            </p>
-          </div>
-        </header>
-
-        <div className="subscription-nav">
-          <button
-            className="icon-button"
-            type="button"
-            title="上一项订阅"
-            aria-label="上一项订阅"
-            onClick={() => onNavigate(-1)}
-            disabled={subscriptions.length < 2}
-          >
-            <ChevronLeft size={18} aria-hidden="true" />
-          </button>
-          <div className="subscription-name">
-            <span>{selectedSubscription?.name ?? "读取中"}</span>
-            {subscriptions.length > 1 && <small>{selectedIndex + 1} / {subscriptions.length}</small>}
-          </div>
-          <button
-            className="icon-button"
-            type="button"
-            title="下一项订阅"
-            aria-label="下一项订阅"
-            onClick={() => onNavigate(1)}
-            disabled={subscriptions.length < 2}
-          >
-            <ChevronRight size={18} aria-hidden="true" />
-          </button>
-        </div>
-
-        {quotaSnapshot ? (
-          <>
-            <div className="quota-vessel" aria-label="周额度和月额度的剩余水位">
+        <div
+          className="quota-vessel"
+          aria-label={quotaSnapshot ? "周额度和月额度的剩余水位" : statusText(state, selectedSubscription)}
+        >
+          {quotaSnapshot ? (
+            <>
               <div
                 className="water-fill weekly-fill"
                 style={{ height: `${remainingPercentage(quotaSnapshot.weekly)}%` }}
@@ -159,29 +130,60 @@ export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
               />
               <div className="vessel-divider" />
               <div className="vessel-gloss" />
+              <div className="quota-content">
+                <div className="quota-period weekly-period">
+                  <span>周</span>
+                  <p className="amount-line">
+                    <strong>{formatMoney(quotaSnapshot.weekly.remainingAmount)}</strong>
+                    <small>/{formatMoney(quotaSnapshot.weekly.limit)}</small>
+                  </p>
+                  <em>{quotaSnapshot.weekly.resetCountdown} 后重置</em>
+                </div>
+                <div className="quota-period monthly-period">
+                  <span>月</span>
+                  <p className="amount-line">
+                    <strong>{formatMoney(quotaSnapshot.monthly.remainingAmount)}</strong>
+                    <small>/{formatMoney(quotaSnapshot.monthly.limit)}</small>
+                  </p>
+                  <em>{quotaSnapshot.monthly.resetCountdown} 后重置</em>
+                </div>
+              </div>
+              {stateNotice && (
+                <p className="state-notice" aria-live="polite">
+                  {stateNotice}
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="empty-vessel">
+              <MoreHorizontal size={30} aria-hidden="true" />
+              <p aria-live="polite">{statusText(state, selectedSubscription)}</p>
             </div>
+          )}
 
-            <div className="quota-values">
-              <div className="quota-value weekly-value">
-                <span>周</span>
-                <strong>{formatMoney(quotaSnapshot.weekly.remainingAmount)}</strong>
-                <small>剩余 / {formatMoney(quotaSnapshot.weekly.limit)}</small>
-                <em>{quotaSnapshot.weekly.resetCountdown} 后重置</em>
-              </div>
-              <div className="quota-value monthly-value">
-                <span>月</span>
-                <strong>{formatMoney(quotaSnapshot.monthly.remainingAmount)}</strong>
-                <small>剩余 / {formatMoney(quotaSnapshot.monthly.limit)}</small>
-                <em>{quotaSnapshot.monthly.resetCountdown} 后重置</em>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="empty-vessel">
-            <MoreHorizontal size={30} aria-hidden="true" />
-            <p>{statusText(state, selectedSubscription)}</p>
-          </div>
-        )}
+          {subscriptions.length > 1 && (
+            <>
+              <button
+                className="vessel-nav vessel-nav-previous"
+                type="button"
+                title="上一项订阅"
+                aria-label="上一项订阅"
+                onClick={() => onNavigate(-1)}
+              >
+                <ChevronLeft size={16} aria-hidden="true" />
+              </button>
+              <button
+                className="vessel-nav vessel-nav-next"
+                type="button"
+                title="下一项订阅"
+                aria-label="下一项订阅"
+                onClick={() => onNavigate(1)}
+              >
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </div>
       </section>
     </main>
   );
