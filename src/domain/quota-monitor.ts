@@ -54,6 +54,13 @@ export class SchemaMismatchError extends Error {
   }
 }
 
+export class AuthenticationRequiredError extends Error {
+  constructor() {
+    super("A valid 3R login is required before reading subscriptions.");
+    this.name = "AuthenticationRequiredError";
+  }
+}
+
 export interface Clock {
   now(): Date;
 }
@@ -66,11 +73,16 @@ export type QuotaMonitorState =
       lastAttemptAt: Date;
       lastVerifiedAt: Date;
       freshness: "current" | "update-failed";
-      updateFailure: "read-failed" | "schema-mismatch" | undefined;
+      updateFailure: "authentication-required" | "read-failed" | "schema-mismatch" | undefined;
     }
   | {
       kind: "unverified";
-      reason: "starting" | "no-supported-subscription" | "read-failed" | "schema-mismatch";
+      reason:
+        | "starting"
+        | "authentication-required"
+        | "no-supported-subscription"
+        | "read-failed"
+        | "schema-mismatch";
       subscriptions: Subscription[];
       selectedSubscriptionId: string | undefined;
       lastAttemptAt: Date | undefined;
@@ -154,7 +166,12 @@ export function createQuotaMonitor({
         updateFailure: undefined
       });
     } catch (error) {
-      const failureReason = error instanceof SchemaMismatchError ? "schema-mismatch" : "read-failed";
+      const failureReason =
+        error instanceof SchemaMismatchError
+          ? "schema-mismatch"
+          : error instanceof AuthenticationRequiredError
+            ? "authentication-required"
+            : "read-failed";
 
       if (state.kind === "verified") {
         return publish({

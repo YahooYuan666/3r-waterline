@@ -4,10 +4,15 @@
 
 **依赖:** 02 - 安全解析订阅页并支持多订阅。
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] 登录窗口限制顶层导航于 3R 官方认证和订阅流程，应用不提供本地密码表单。
 - [ ] 已授权登录创建当前操作系统用户保护的可复用 Login State；密码、原始会话值和原始页面 HTML 不会出现在日志或应用目录。
 - [ ] 重启应用后，可使用应用自身的 Login State 读取当前订阅数据，且不读取任何默认浏览器资料。
 - [ ] 认证无效或过期时进入 Unverified State 并提供重新登录路径，而非展示陈旧额度。
 - [ ] 集成验证只使用专用且授权的测试账号，密码和会话材料不会进入源代码、测试输出或诊断信息。
+
+## Comments
+
+- 2026-08-21：已先接入 Tauri 独立 Official Login Window、官方 `ai.3rcd.com` 顶层导航白名单、禁止新窗口、当前操作系统用户专属 WebView 数据目录，以及 Windows WebView2 的订阅字段白名单捕获。
+- 当前票据仍未完成：操作系统安全存储的 Login State 生命周期、Clear This Device、认证过期重登录和 macOS WKWebView 实机验收。因此不能标记为 resolved。

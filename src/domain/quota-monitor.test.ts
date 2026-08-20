@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  AuthenticationRequiredError,
   createQuotaMonitor,
   SchemaMismatchError,
   type SubscriptionReadResult
@@ -89,6 +90,19 @@ describe("Quota Monitor", () => {
       subscriptions: [],
       selectedSubscriptionId: undefined,
       lastAttemptAt: expect.any(Date)
+    });
+  });
+
+  it("requires an official Login State instead of treating an absent capture as a transport failure", async () => {
+    const reader = {
+      read: vi.fn().mockRejectedValue(new AuthenticationRequiredError())
+    };
+    const monitor = createQuotaMonitor({ reader });
+
+    await expect(monitor.start()).resolves.toMatchObject({
+      kind: "unverified",
+      reason: "authentication-required",
+      subscriptions: []
     });
   });
 

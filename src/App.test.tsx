@@ -151,4 +151,27 @@ describe("WaterlineOverlay", () => {
     expect(screen.queryByText("此订阅暂不支持")).toBeNull();
     expect(screen.queryByText("订阅已失效")).toBeNull();
   });
+
+  it("offers the official 3R login command only when no Login State is available", () => {
+    const onLogin = vi.fn();
+
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "unverified",
+          reason: "authentication-required",
+          subscriptions: [],
+          selectedSubscriptionId: undefined,
+          lastAttemptAt: new Date("2026-08-21T01:00:00.000Z")
+        }}
+        onNavigate={vi.fn()}
+        onLogin={onLogin}
+      />
+    );
+
+    screen.getByRole("button", { name: "登录 3R" }).click();
+
+    expect(screen.getByText("尚未登录 3R")).toBeTruthy();
+    expect(onLogin).toHaveBeenCalledTimes(1);
+  });
 });

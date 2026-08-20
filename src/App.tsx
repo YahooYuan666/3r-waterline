@@ -1,46 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, LogIn, MoreHorizontal } from "lucide-react";
 import {
+  AuthenticationRequiredError,
   createQuotaMonitor,
   type Money,
   type PeriodQuota,
   type QuotaMonitorState,
-  type SupportedSubscription,
-  type SubscriptionsPageReader,
-  type SubscriptionReadResult
+  type SupportedSubscription
 } from "./domain/quota-monitor";
-
-const simulatedSubscriptions: SubscriptionReadResult = {
-  subscriptions: [
-    {
-      id: "gpt-4x",
-      name: "GPT 4x",
-      status: "supported",
-      quotaSnapshot: {
-        weekly: {
-          remainingAmount: { amount: 326.54, currency: "USD" },
-          limit: { amount: 400, currency: "USD" },
-          resetCountdown: "4d 1h"
-        },
-        monthly: {
-          remainingAmount: { amount: 800.57, currency: "USD" },
-          limit: { amount: 1600, currency: "USD" },
-          resetCountdown: "6d 1h"
-        }
-      }
-    },
-    {
-      id: "future-plan",
-      name: "其他方案",
-      status: "unsupported"
-    },
-    {
-      id: "expired-plan",
-      name: "历史订阅",
-      status: "inactive"
-    }
-  ]
-};
+import {
+  createHtmlSubscriptionsPageReader,
+  parseSubscriptionPageCapture,
+  type SubscriptionPageCapture
+} from "./domain/subscription-page-parser";
+import { previewSubscriptionsPageHtml } from "./domain/subscription-page-preview";
 
 function formatMoney(money: Money, fractionDigits = 2) {
   return new Intl.NumberFormat("en-US", {
@@ -55,16 +28,12 @@ function remainingPercentage(period: PeriodQuota) {
   return Math.max(0, Math.min(100, (period.remainingAmount.amount / period.limit.amount) * 100));
 }
 
-function createSimulatedSubscriptionsPageReader(): SubscriptionsPageReader {
-  return {
-    async read() {
-      return simulatedSubscriptions;
-    }
-  };
-}
-
 function statusText(state: QuotaMonitorState) {
   if (state.kind === "unverified") {
+    if (state.reason === "authentication-required") {
+      return "尚未登录 3R";
+    }
+
     if (state.reason === "starting") {
       return "正在校验额度";
     }
@@ -79,7 +48,11 @@ function statusText(state: QuotaMonitorState) {
   }
 
   if (state.kind === "verified" && state.freshness === "update-failed") {
-    return state.updateFailure === "schema-mismatch" ? "订阅页面格式已变更" : "上次更新失败";
+    if (state.updateFailure === "schema-mismatch") {
+      return "订阅页面格式已变更";
+    }
+
+    return state.updateFailure === "authentication-required" ? "需要重新登录 3R" : "上次更新失败";
   }
 
   return "额度暂不可用";
@@ -88,9 +61,10 @@ function statusText(state: QuotaMonitorState) {
 interface WaterlineOverlayProps {
   state: QuotaMonitorState;
   onNavigate: (offset: -1 | 1) => void;
+  onLogin?: () => void;
 }
 
-export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
+export function WaterlineOverlay({ state, onNavigate, onLogin }: WaterlineOverlayProps) {
   const supportedSubscriptions = state.subscriptions.filter(
     (subscription): subscription is SupportedSubscription => subscription.status === "supported"
   );
@@ -102,6 +76,7 @@ export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
     state.kind === "verified" && state.freshness === "update-failed"
       ? statusText(state)
       : undefined;
+  const needsLogin = state.kind === "unverified" && state.reason === "authentication-required";
 
   return (
     <main className="waterline-stage">
@@ -148,8 +123,14 @@ export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
             </>
           ) : (
             <div className="empty-vessel">
-              <MoreHorizontal size={30} aria-hidden="true" />
+              {needsLogin ? <LogIn size={30} aria-hidden="true" /> : <MoreHorizontal size={30} aria-hidden="true" />}
               <p aria-live="polite">{statusText(state)}</p>
+              {needsLogin && onLogin && (
+                <button className="empty-vessel-login" type="button" onClick={onLogin}>
+                  <LogIn size={15} aria-hidden="true" />
+                  <span>登录 3R</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -181,12 +162,48 @@ export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
   );
 }
 
+function isTauriRuntime() {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+function createNativeSubscriptionsPageReader() {
+  return {
+    async read() {
+      let capture: SubscriptionPageCapture;
+
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        capture = await invoke<SubscriptionPageCapture>("request_subscription_capture");
+      } catch {
+        throw new AuthenticationRequiredError();
+      }
+
+      return parseSubscriptionPageCapture(capture);
+    }
+  };
+}
+
 export default function App() {
+  const nativeRuntime = useMemo(isTauriRuntime, []);
   const monitor = useMemo(
-    () => createQuotaMonitor({ reader: createSimulatedSubscriptionsPageReader() }),
-    []
+    () =>
+      createQuotaMonitor({
+        reader: nativeRuntime
+          ? createNativeSubscriptionsPageReader()
+          : createHtmlSubscriptionsPageReader(async () => previewSubscriptionsPageHtml)
+      }),
+    [nativeRuntime]
   );
   const [state, setState] = useState<QuotaMonitorState>(() => monitor.getState());
+
+  const openOfficialLogin = useCallback(async () => {
+    if (!nativeRuntime) {
+      return;
+    }
+
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("open_official_login");
+  }, [nativeRuntime]);
 
   useEffect(() => {
     const unsubscribe = monitor.subscribe(setState);
@@ -195,10 +212,37 @@ export default function App() {
     return unsubscribe;
   }, [monitor]);
 
+  useEffect(() => {
+    if (!nativeRuntime) {
+      return;
+    }
+
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+
+    void import("@tauri-apps/api/event").then(async ({ listen }) => {
+      const stopListening = await listen("subscriptions-captured", () => {
+        void monitor.refresh();
+      });
+
+      if (disposed) {
+        stopListening();
+      } else {
+        unlisten = stopListening;
+      }
+    });
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [monitor, nativeRuntime]);
+
   return (
     <WaterlineOverlay
       state={state}
       onNavigate={(offset) => monitor.selectAdjacentSupportedSubscription(offset)}
+      onLogin={nativeRuntime ? () => void openOfficialLogin() : undefined}
     />
   );
 }
