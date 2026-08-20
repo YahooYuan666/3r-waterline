@@ -76,7 +76,10 @@ export function WaterlineOverlay({ state, onNavigate, onLogin }: WaterlineOverla
     state.kind === "verified" && state.freshness === "update-failed"
       ? statusText(state)
       : undefined;
-  const canLogin = state.kind === "unverified" && onLogin != null;
+  const canLogin =
+    state.kind === "unverified" &&
+    (state.reason === "starting" || state.reason === "authentication-required") &&
+    onLogin != null;
 
   return (
     <main className="waterline-stage">

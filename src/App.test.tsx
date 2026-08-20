@@ -196,4 +196,25 @@ describe("WaterlineOverlay", () => {
     screen.getByRole("button", { name: "登录 3R" }).click();
     expect(onLogin).toHaveBeenCalledTimes(1);
   });
+
+  it("does not offer login for unrelated unverified states", () => {
+    for (const reason of ["read-failed", "schema-mismatch", "no-supported-subscription"] as const) {
+      const { unmount } = render(
+        <WaterlineOverlay
+          state={{
+            kind: "unverified",
+            reason,
+            subscriptions: [],
+            selectedSubscriptionId: undefined,
+            lastAttemptAt: undefined
+          }}
+          onNavigate={vi.fn()}
+          onLogin={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByRole("button", { name: "登录 3R" })).toBeNull();
+      unmount();
+    }
+  });
 });
