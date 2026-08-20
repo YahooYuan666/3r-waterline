@@ -257,7 +257,10 @@ fn request_subscription_capture(
         return Ok(capture);
     }
 
-    let _ = ensure_official_login_window(&app, state.0.clone(), false);
+    // Surface the official login page immediately when this lifecycle has no
+    // captured subscription state. This keeps first-run recovery independent
+    // of whether the compact overlay's click event reaches the native command.
+    let _ = ensure_official_login_window(&app, state.0.clone(), true);
     Err("AUTHENTICATION_REQUIRED".to_string())
 }
 
