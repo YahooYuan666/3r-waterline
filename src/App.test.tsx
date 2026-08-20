@@ -174,4 +174,26 @@ describe("WaterlineOverlay", () => {
     expect(screen.getByText("尚未登录 3R")).toBeTruthy();
     expect(onLogin).toHaveBeenCalledTimes(1);
   });
+
+  it("offers login immediately while the initial quota check is starting", () => {
+    const onLogin = vi.fn();
+
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "unverified",
+          reason: "starting",
+          subscriptions: [],
+          selectedSubscriptionId: undefined,
+          lastAttemptAt: undefined
+        }}
+        onNavigate={vi.fn()}
+        onLogin={onLogin}
+      />
+    );
+
+    expect(screen.getByText("正在校验额度")).toBeTruthy();
+    screen.getByRole("button", { name: "登录 3R" }).click();
+    expect(onLogin).toHaveBeenCalledTimes(1);
+  });
 });

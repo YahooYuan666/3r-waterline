@@ -194,9 +194,6 @@ fn ensure_official_login_window(
         .map_err(|error| format!("Invalid official subscriptions URL: {error}"))?;
 
     if let Some(window) = app.get_webview_window(LOGIN_WINDOW_LABEL) {
-        window
-            .navigate(subscriptions_url)
-            .map_err(|error| format!("Unable to load the official subscriptions page: {error}"))?;
         if visible {
             window.show().map_err(|error| error.to_string())?;
             window.set_focus().map_err(|error| error.to_string())?;

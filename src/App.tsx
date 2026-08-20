@@ -76,7 +76,7 @@ export function WaterlineOverlay({ state, onNavigate, onLogin }: WaterlineOverla
     state.kind === "verified" && state.freshness === "update-failed"
       ? statusText(state)
       : undefined;
-  const needsLogin = state.kind === "unverified" && state.reason === "authentication-required";
+  const canLogin = state.kind === "unverified" && onLogin != null;
 
   return (
     <main className="waterline-stage">
@@ -123,9 +123,9 @@ export function WaterlineOverlay({ state, onNavigate, onLogin }: WaterlineOverla
             </>
           ) : (
             <div className="empty-vessel">
-              {needsLogin ? <LogIn size={30} aria-hidden="true" /> : <MoreHorizontal size={30} aria-hidden="true" />}
+              {canLogin ? <LogIn size={30} aria-hidden="true" /> : <MoreHorizontal size={30} aria-hidden="true" />}
               <p aria-live="polite">{statusText(state)}</p>
-              {needsLogin && onLogin && (
+              {canLogin && onLogin && (
                 <button className="empty-vessel-login" type="button" onClick={onLogin}>
                   <LogIn size={15} aria-hidden="true" />
                   <span>登录 3R</span>
