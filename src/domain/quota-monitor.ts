@@ -81,7 +81,7 @@ export interface QuotaMonitor {
   subscribe(listener: (state: QuotaMonitorState) => void): () => void;
   start(): Promise<QuotaMonitorState>;
   refresh(): Promise<QuotaMonitorState>;
-  selectAdjacentSubscription(offset: -1 | 1): QuotaMonitorState;
+  selectAdjacentSupportedSubscription(offset: -1 | 1): QuotaMonitorState;
 }
 
 const systemClock: Clock = {
@@ -197,20 +197,27 @@ export function createQuotaMonitor({
     },
     start: readSubscriptions,
     refresh: readSubscriptions,
-    selectAdjacentSubscription(offset) {
-      if (state.subscriptions.length === 0) {
+    selectAdjacentSupportedSubscription(offset) {
+      const supportedSubscriptions = state.subscriptions.filter(
+        (subscription): subscription is SupportedSubscription => subscription.status === "supported"
+      );
+
+      if (supportedSubscriptions.length < 2) {
         return state;
       }
 
       const currentIndex = Math.max(
         0,
-        state.subscriptions.findIndex((subscription) => subscription.id === state.selectedSubscriptionId)
+        supportedSubscriptions.findIndex(
+          (subscription) => subscription.id === state.selectedSubscriptionId
+        )
       );
-      const nextIndex = (currentIndex + offset + state.subscriptions.length) % state.subscriptions.length;
+      const nextIndex =
+        (currentIndex + offset + supportedSubscriptions.length) % supportedSubscriptions.length;
 
       return publish({
         ...state,
-        selectedSubscriptionId: state.subscriptions[nextIndex].id
+        selectedSubscriptionId: supportedSubscriptions[nextIndex].id
       });
     }
   };

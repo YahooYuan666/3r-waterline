@@ -23,3 +23,4 @@
 ## 变更记录
 
 - 2026-08-21：按用户确认将悬浮层压缩为透明无标题栏的单个圆形双液仓。周、月金额、上限和 Reset Countdown 均直接显示在瓶内；不再显示“3R 水位”“模拟额度”、外框或外置数据区。
+- 2026-08-21：按用户确认，Overlay Context 只显示并轮询 Supported Subscription；Unsupported Subscription 和 Inactive Subscription 继续保留在内部状态中用于安全判断，但不作为可翻页选项展示。

@@ -43,17 +43,17 @@ describe("WaterlineOverlay", () => {
 
     expect(vessel.textContent).toContain("周");
     expect(vessel.textContent).toContain("$326.54");
-    expect(vessel.textContent).toContain("/$400.00");
+    expect(vessel.textContent).toContain("/$400");
     expect(vessel.textContent).toContain("4d 1h 后重置");
     expect(vessel.textContent).toContain("月");
     expect(vessel.textContent).toContain("$800.57");
-    expect(vessel.textContent).toContain("/$1,600.00");
+    expect(vessel.textContent).toContain("/$1,600");
     expect(vessel.textContent).toContain("6d 1h 后重置");
     expect(screen.queryByText("3R 水位")).toBeNull();
     expect(screen.queryByText("模拟额度")).toBeNull();
   });
 
-  it("renders distinct Unverified, failed-update, Unsupported, and Inactive states", () => {
+  it("renders failure states but keeps unrelated Subscription cards out of the vessel", () => {
     const { rerender } = renderOverlay({
       kind: "unverified",
       reason: "read-failed",
@@ -113,29 +113,42 @@ describe("WaterlineOverlay", () => {
     rerender(
       <WaterlineOverlay
         state={{
-          kind: "unverified",
-          reason: "no-supported-subscription",
-          selectedSubscriptionId: "unsupported",
-          subscriptions: [{ id: "unsupported", name: "其他方案", status: "unsupported" }],
-          lastAttemptAt: new Date("2026-08-21T01:00:00.000Z")
+          kind: "verified",
+          selectedSubscriptionId: "gpt-4x",
+          subscriptions: [
+            supportedSubscription,
+            { id: "unsupported", name: "其他方案", status: "unsupported" },
+            { id: "inactive", name: "历史订阅", status: "inactive" }
+          ],
+          lastAttemptAt: new Date("2026-08-21T01:00:00.000Z"),
+          lastVerifiedAt: new Date("2026-08-21T01:00:00.000Z"),
+          freshness: "current",
+          updateFailure: undefined
         }}
         onNavigate={vi.fn()}
       />
     );
-    expect(screen.getByText("此订阅暂不支持")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "上一项订阅" })).toBeNull();
+    expect(screen.queryByText("其他方案")).toBeNull();
+    expect(screen.queryByText("历史订阅")).toBeNull();
 
     rerender(
       <WaterlineOverlay
         state={{
           kind: "unverified",
           reason: "no-supported-subscription",
-          selectedSubscriptionId: "inactive",
-          subscriptions: [{ id: "inactive", name: "历史订阅", status: "inactive" }],
+          selectedSubscriptionId: "unsupported",
+          subscriptions: [
+            { id: "unsupported", name: "其他方案", status: "unsupported" },
+            { id: "inactive", name: "历史订阅", status: "inactive" }
+          ],
           lastAttemptAt: new Date("2026-08-21T01:00:00.000Z")
         }}
         onNavigate={vi.fn()}
       />
     );
-    expect(screen.getByText("订阅已失效")).toBeTruthy();
+    expect(screen.getByText("额度暂不可用")).toBeTruthy();
+    expect(screen.queryByText("此订阅暂不支持")).toBeNull();
+    expect(screen.queryByText("订阅已失效")).toBeNull();
   });
 });

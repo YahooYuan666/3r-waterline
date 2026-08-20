@@ -150,13 +150,18 @@ describe("Quota Monitor", () => {
     });
   });
 
-  it("publishes the selected Subscription after navigation instead of leaving selection in the overlay", async () => {
+  it("navigates only Supported Subscriptions for the compact overlay", async () => {
     const reader = {
       read: vi.fn().mockResolvedValue({
         subscriptions: [
           supportedRead.subscriptions[0],
           { id: "unknown", name: "其他方案", status: "unsupported" as const },
-          { id: "old", name: "历史订阅", status: "inactive" as const }
+          { id: "old", name: "历史订阅", status: "inactive" as const },
+          {
+            ...supportedRead.subscriptions[0],
+            id: "gpt-4x-plus",
+            name: "GPT 4x Plus"
+          }
         ]
       })
     };
@@ -164,11 +169,11 @@ describe("Quota Monitor", () => {
 
     await monitor.start();
 
-    expect(monitor.selectAdjacentSubscription(1)).toMatchObject({
-      selectedSubscriptionId: "unknown"
+    expect(monitor.selectAdjacentSupportedSubscription(1)).toMatchObject({
+      selectedSubscriptionId: "gpt-4x-plus"
     });
-    expect(monitor.selectAdjacentSubscription(1)).toMatchObject({
-      selectedSubscriptionId: "old"
+    expect(monitor.selectAdjacentSupportedSubscription(1)).toMatchObject({
+      selectedSubscriptionId: "gpt-4x"
     });
   });
 });

@@ -5,7 +5,7 @@ import {
   type Money,
   type PeriodQuota,
   type QuotaMonitorState,
-  type Subscription,
+  type SupportedSubscription,
   type SubscriptionsPageReader,
   type SubscriptionReadResult
 } from "./domain/quota-monitor";
@@ -42,11 +42,12 @@ const simulatedSubscriptions: SubscriptionReadResult = {
   ]
 };
 
-function formatMoney(money: Money) {
+function formatMoney(money: Money, fractionDigits = 2) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: money.currency,
-    minimumFractionDigits: 2
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
   }).format(money.amount);
 }
 
@@ -62,7 +63,7 @@ function createSimulatedSubscriptionsPageReader(): SubscriptionsPageReader {
   };
 }
 
-function statusText(state: QuotaMonitorState, subscription: Subscription | undefined) {
+function statusText(state: QuotaMonitorState) {
   if (state.kind === "unverified") {
     if (state.reason === "starting") {
       return "正在校验额度";
@@ -81,14 +82,6 @@ function statusText(state: QuotaMonitorState, subscription: Subscription | undef
     return state.updateFailure === "schema-mismatch" ? "订阅页面格式已变更" : "上次更新失败";
   }
 
-  if (subscription?.status === "unsupported") {
-    return "此订阅暂不支持";
-  }
-
-  if (subscription?.status === "inactive") {
-    return "订阅已失效";
-  }
-
   return "额度暂不可用";
 }
 
@@ -98,17 +91,16 @@ interface WaterlineOverlayProps {
 }
 
 export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
-  const subscriptions = state.subscriptions;
-  const selectedIndex = Math.max(
-    0,
-    subscriptions.findIndex((subscription) => subscription.id === state.selectedSubscriptionId)
+  const supportedSubscriptions = state.subscriptions.filter(
+    (subscription): subscription is SupportedSubscription => subscription.status === "supported"
   );
-  const selectedSubscription = subscriptions[selectedIndex];
-  const quotaSnapshot =
-    selectedSubscription?.status === "supported" ? selectedSubscription.quotaSnapshot : undefined;
+  const selectedSubscription =
+    supportedSubscriptions.find((subscription) => subscription.id === state.selectedSubscriptionId) ??
+    supportedSubscriptions[0];
+  const quotaSnapshot = selectedSubscription?.quotaSnapshot;
   const stateNotice =
     state.kind === "verified" && state.freshness === "update-failed"
-      ? statusText(state, selectedSubscription)
+      ? statusText(state)
       : undefined;
 
   return (
@@ -116,7 +108,7 @@ export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
       <section className="waterline-overlay" aria-label="3R 剩余额度悬浮窗预览">
         <div
           className="quota-vessel"
-          aria-label={quotaSnapshot ? "周额度和月额度的剩余水位" : statusText(state, selectedSubscription)}
+          aria-label={quotaSnapshot ? "周额度和月额度的剩余水位" : statusText(state)}
         >
           {quotaSnapshot ? (
             <>
@@ -135,7 +127,7 @@ export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
                   <span>周</span>
                   <p className="amount-line">
                     <strong>{formatMoney(quotaSnapshot.weekly.remainingAmount)}</strong>
-                    <small>/{formatMoney(quotaSnapshot.weekly.limit)}</small>
+                    <small>/{formatMoney(quotaSnapshot.weekly.limit, 0)}</small>
                   </p>
                   <em>{quotaSnapshot.weekly.resetCountdown} 后重置</em>
                 </div>
@@ -143,7 +135,7 @@ export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
                   <span>月</span>
                   <p className="amount-line">
                     <strong>{formatMoney(quotaSnapshot.monthly.remainingAmount)}</strong>
-                    <small>/{formatMoney(quotaSnapshot.monthly.limit)}</small>
+                    <small>/{formatMoney(quotaSnapshot.monthly.limit, 0)}</small>
                   </p>
                   <em>{quotaSnapshot.monthly.resetCountdown} 后重置</em>
                 </div>
@@ -157,11 +149,11 @@ export function WaterlineOverlay({ state, onNavigate }: WaterlineOverlayProps) {
           ) : (
             <div className="empty-vessel">
               <MoreHorizontal size={30} aria-hidden="true" />
-              <p aria-live="polite">{statusText(state, selectedSubscription)}</p>
+              <p aria-live="polite">{statusText(state)}</p>
             </div>
           )}
 
-          {subscriptions.length > 1 && (
+          {supportedSubscriptions.length > 1 && (
             <>
               <button
                 className="vessel-nav vessel-nav-previous"
@@ -206,7 +198,7 @@ export default function App() {
   return (
     <WaterlineOverlay
       state={state}
-      onNavigate={(offset) => monitor.selectAdjacentSubscription(offset)}
+      onNavigate={(offset) => monitor.selectAdjacentSupportedSubscription(offset)}
     />
   );
 }
