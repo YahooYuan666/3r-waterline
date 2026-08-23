@@ -6,9 +6,9 @@
 
 `v0.1.0` 已提供 Windows 构建文件：
 
-- `3R Waterline_0.1.0_x64-setup.exe`：NSIS 安装程序，适合大多数用户。
-- `3R Waterline_0.1.0_x64_en-US.msi`：MSI 安装包，适合企业软件分发。
-- `three_r_waterline.exe`：便携式可执行文件，无需安装。
+- `3R Waterline_0.1.0_x64-setup.exe`：Windows 安装版（NSIS，推荐）。
+- `three_r_waterline.exe`：Windows 便携版，无需安装。
+- 同目录也保留 `3R Waterline_0.1.0_x64_en-US.msi`，供需要 MSI 的 Windows 用户选择。
 
 ## 功能
 
@@ -50,7 +50,7 @@ macOS 构建需要在 macOS 主机上运行 Tauri 构建，并完成 Apple 签�
 
 ## 发布
 
-仓库采用 Public GitHub repository。推荐使用 GitHub CLI/API 完成仓库创建、推送和 Release 上传，不需要先打开 GitHub 网页手动创建项目。详见 [release-notes.md](release-notes.md)。
+仓库采用 Public GitHub repository。推荐使用 GitHub CLI/API 完成仓库创建、推送和 Release 上传，不需要先打开 GitHub 网页手动创建项目。当前 Release 只宣称 Windows 构建；macOS 使用同一 Tauri 框架，但尚未在真实 macOS 设备上完成验收、签名和公证，社区用户可自行构建验证。详见 [release-notes.md](release-notes.md)。
 
 ## 许可证
 

@@ -4,9 +4,9 @@
 
 ## 下载
 
-- `3R Waterline_0.1.0_x64-setup.exe`：Windows 安装程序（推荐）。
-- `3R Waterline_0.1.0_x64_en-US.msi`：Windows MSI 安装包。
+- `3R Waterline_0.1.0_x64-setup.exe`：Windows 安装版（推荐）。
 - `three_r_waterline.exe`：Windows 便携版。
+- `3R Waterline_0.1.0_x64_en-US.msi`：额外提供的 Windows MSI 安装包。
 
 ## 已包含
 
@@ -20,7 +20,7 @@
 
 ## 已知限制
 
-本 Release 的安装包是 Windows x64 构建。macOS 需要在 macOS 主机上完成构建、签名和公证后再发布对应产物。
+本 Release 只宣称 Windows x64 构建。项目使用 Tauri 2，保留 Windows/macOS 的跨平台设计；但 macOS 尚未在真实设备上完成登录、窗口、自动启动、签名和公证验收，因此没有伪造 macOS 下载文件。macOS 用户可以自行构建并根据需要修复平台差异。
 
 ## 校验
 
