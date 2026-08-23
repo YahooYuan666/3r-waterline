@@ -4,3 +4,4 @@ src-tauri/target/
 *.tsbuildinfo
 .env
 .env.*
+.scratch/**/*.png
