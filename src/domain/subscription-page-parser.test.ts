@@ -57,7 +57,8 @@ function officialRenderedCard({
   weeklyReset = "4d 1h 后重置",
   monthlyUsage = "$799.43",
   monthlyLimit = "$1,600.00",
-  monthlyReset = "6d 1h 后重置"
+  monthlyReset = "6d 1h 后重置",
+  expiryText
 }: {
   name: string;
   status?: "active" | "expired" | "invalid";
@@ -67,6 +68,7 @@ function officialRenderedCard({
   monthlyUsage?: string;
   monthlyLimit?: string;
   monthlyReset?: string;
+  expiryText?: string;
 }) {
   const statusClass =
     status === "active"
@@ -79,6 +81,7 @@ function officialRenderedCard({
     <div class="overflow-hidden rounded-2xl border bg-white">
       <div class="flex items-center justify-between border-b"><h3>${name}</h3><span class="rounded-full ${statusClass}">${status}</span></div>
       <div class="space-y-4 p-4">
+        ${expiryText == null ? "" : `<div class="flex items-center justify-between text-sm"><span>到期时间</span><span>${expiryText}</span></div>`}
         <div class="space-y-2">
           <div class="flex items-center justify-between"><span>周额度</span><span>${weeklyUsage} / ${weeklyLimit}</span></div>
           <div class="relative h-2 overflow-hidden rounded-full bg-gray-200"><div style="width: 20%"></div></div>
@@ -170,7 +173,7 @@ describe("subscription page parser", () => {
 
     expect(result.subscriptions.map(({ id, status }) => ({ id, status }))).toEqual([
       { id: "valid", status: "supported" },
-      { id: "bad-limit", status: "unsupported" },
+      { id: "bad-limit", status: "supported" },
       { id: "unknown", status: "unsupported" },
       { id: "expired", status: "inactive" }
     ]);
@@ -208,14 +211,14 @@ describe("subscription page parser", () => {
     ]);
   });
 
-  it("rejects an invalid period instead of guessing a Quota Snapshot", () => {
+  it("rejects malformed amounts instead of guessing a Quota Snapshot", () => {
     const result = parseSubscriptionsPageHtml(
       subscriptionsPage(
         supportedCard({
           id: "currency-mismatch",
           name: "Currency Mismatch",
-          monthlyLimit: "EUR 1,600.00",
-          weeklyReset: "4 hours"
+          weeklyUsed: "EUR 120.00",
+          monthlyLimit: "EUR 1,600.00"
         })
       )
     );
@@ -248,6 +251,7 @@ describe("subscription page parser", () => {
     const result = parseSubscriptionPageCapture({
       cards: [
         {
+          id: "subscription-42",
           name: "Whitelisted",
           status: "active",
           weekly: { amounts: "$73.46 / $400.00", reset: "4d 1h" },
@@ -260,6 +264,7 @@ describe("subscription page parser", () => {
 
     expect(result.subscriptions).toEqual([
       expect.objectContaining({
+        id: "subscription-42",
         name: "Whitelisted",
         status: "supported",
         quotaSnapshot: expect.objectContaining({
@@ -270,8 +275,123 @@ describe("subscription page parser", () => {
     ]);
   });
 
+  it("keeps a supported subscription when the server removes the weekly quota", () => {
+    const result = parseSubscriptionsPageHtml(
+      subscriptionsPage(`
+        <article data-3r-subscription-card data-subscription-id="monthly-only" data-subscription-name="GPT 4x" data-subscription-status="active">
+          <section data-quota-period="monthly">
+            <span data-quota-used>$799.43</span>
+            <span data-quota-limit>$2,000.00</span>
+            <time data-quota-reset>6d 1h</time>
+          </section>
+        </article>
+      `)
+    );
+
+    expect(result.subscriptions).toEqual([
+      {
+        id: "monthly-only",
+        name: "GPT 4x",
+        status: "supported",
+        quotaSnapshot: {
+          monthly: {
+            remainingAmount: { amount: 1200.57, currency: "USD" },
+            limit: { amount: 2000, currency: "USD" },
+            resetCountdown: "6d 1h"
+          }
+        }
+      }
+    ]);
+  });
+
+  it("recognizes a top-up that exposes remaining days without a reset countdown", () => {
+    const result = parseSubscriptionsPageHtml(
+      subscriptionsPage(`
+        <article data-3r-subscription-card data-subscription-id="top-up" data-subscription-name="小加油包" data-subscription-status="active">
+          <section data-quota-period="monthly">
+            <span data-quota-used>$0.00</span>
+            <span data-quota-limit>$100.00</span>
+            <time data-quota-reset>剩余 7 天 (2026/08/30 20:56)</time>
+          </section>
+        </article>
+      `)
+    );
+
+    expect(result.subscriptions).toEqual([
+      {
+        id: "top-up",
+        name: "小加油包",
+        status: "supported",
+        quotaSnapshot: {
+          monthly: {
+            remainingAmount: { amount: 100, currency: "USD" },
+            limit: { amount: 100, currency: "USD" },
+            resetCountdown: "7d 0h"
+          }
+        }
+      }
+    ]);
+  });
+
+  it("recognizes the rendered top-up card when expiry is outside the quota period", () => {
+    const result = parseSubscriptionsPageHtml(`
+      <main>
+        <div class="grid gap-6 lg:grid-cols-2">
+          ${officialRenderedCard({
+            name: "小加油包",
+            weeklyUsage: "",
+            monthlyUsage: "$0.00",
+            monthlyLimit: "$50.00",
+            monthlyReset: "",
+            expiryText: "剩余 7 天 (2026/08/30 20:56)"
+          })}
+        </div>
+      </main>
+    `);
+
+    expect(result.subscriptions).toEqual([
+      expect.objectContaining({
+        name: "小加油包",
+        status: "supported",
+        quotaSnapshot: {
+          weekly: undefined,
+          monthly: {
+            remainingAmount: { amount: 50, currency: "USD" },
+            limit: { amount: 50, currency: "USD" }
+          }
+        }
+      })
+    ]);
+  });
+
   it("rejects an empty or malformed native capture", () => {
     expect(() => parseSubscriptionPageCapture({ cards: [] })).toThrow(SchemaMismatchError);
     expect(() => parseSubscriptionPageCapture({ cards: "not-an-array" })).toThrow(SchemaMismatchError);
+  });
+
+  it("keeps a native period when reset is absent", () => {
+    const result = parseSubscriptionPageCapture({
+      cards: [
+        {
+          name: "小加油包",
+          status: "active",
+          monthly: { amounts: "$0.00 / $100.00" }
+        }
+      ]
+    });
+
+    expect(result.subscriptions).toEqual([
+      {
+        id: expect.stringMatching(/^subscription-/),
+        name: "小加油包",
+        status: "supported",
+        quotaSnapshot: {
+          monthly: {
+            remainingAmount: { amount: 100, currency: "USD" },
+            limit: { amount: 100, currency: "USD" }
+          }
+        }
+      }
+    ]);
   });
 });

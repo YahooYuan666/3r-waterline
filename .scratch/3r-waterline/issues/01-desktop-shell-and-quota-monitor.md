@@ -26,6 +26,9 @@
 - 2026-08-21：按用户确认将悬浮层压缩为透明无标题栏的单个圆形双液仓。周、月金额、上限和 Reset Countdown 均直接显示在瓶内；不再显示“3R 水位”“模拟额度”、外框或外置数据区。
 - 2026-08-21：按用户确认，Overlay Context 只显示并轮询 Supported Subscription；Unsupported Subscription 和 Inactive Subscription 继续保留在内部状态中用于安全判断，但不作为可翻页选项展示。
 - 2026-08-21：按用户要求进一步压缩悬浮窗。默认窗口改为 256 × 256 logical px，圆瓶改为 240px，保留现有 13px 粗体金额与倒计时；详见 `docs/research/compact-overlay-sizing.md` 的官方规范调研与跨平台验收条件。
+- 2026-08-22：按用户要求新增可选的 Traffic Monitor 样式。它使用 256 × 122 logical px 的无外框双行进度条，上方绿色周额度、下方蓝色月额度；每条内直接显示周期、Remaining Amount、无小数上限和 Reset Countdown。样式切换在设置关闭后才调整窗口大小，且不会改变用户已拖动的位置。
+- 2026-08-23：按用户反馈压缩默认圆瓶为大档 224 × 224 logical px，并增加中档 180 × 180、小档 144 × 144；Traffic Monitor 同步提供大/中/小三档。两种样式统一禁止文本选择，圆瓶改为参考 Traffic Monitor 的深色半透明底、白色粗体文字和半透明绿/蓝水位。
+- 2026-08-24：Traffic Monitor 中/小档改为标签、金额、倒计时分行布局，避免窄宽度下月额度文字挤压；金额分母不显示千位分隔符。真实网页结构中的“小加油包”只有到期日期且没有 reset，仍保留其月额度并隐藏伪造的“后重置”。
 
 ## Answer
 

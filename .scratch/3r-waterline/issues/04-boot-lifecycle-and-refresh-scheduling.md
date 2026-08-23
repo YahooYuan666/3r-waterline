@@ -4,7 +4,7 @@
 
 **依赖:** 03 - 接入官方登录窗口与安全 Login State。
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] 每次自动启动的 Boot Lifecycle 在展示当前额度前先请求当前订阅数据。
 - [ ] 设置只提供 5、10、15、30、60 分钟的 Refresh Interval，默认 5 分钟，周期请求不早于所选间隔。

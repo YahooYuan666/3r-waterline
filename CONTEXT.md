@@ -17,7 +17,7 @@ The user-controlled operating-system login entry that starts 3R Waterline for a 
 _Avoid_: System service, background daemon
 
 **Edge Hide**:
-The compact overlay state entered only after a user drags the window to an edge of its current display. It exposes an eight-pixel content-free edge tab that expands on hover or click.
+The compact overlay state entered only after a user drags the window to any edge of its current display. It exposes a clearly visible fourteen-pixel edge tab whose weekly/monthly point tracks encode remaining quota and which expands on hover or click, then re-collapses when the pointer leaves unless the user drags away.
 _Avoid_: Idle hide, minimized window
 
 **System Menu**:
@@ -45,7 +45,7 @@ One subscription card belonging to the active 3R Account. A 3R Account may have 
 _Avoid_: Subaccount, plan data
 
 **Supported Subscription**:
-A Subscription whose card has valid weekly and monthly usage, limits, and reset times. It is eligible for a Quota Snapshot and the water-level display.
+A Subscription whose card has at least one valid usage/limit period. Reset text is optional because top-up cards may expose only remaining days or an expiry date. It is eligible for a Quota Snapshot and the water-level display.
 _Avoid_: Parsed card, available plan
 
 **Unsupported Subscription**:
@@ -61,7 +61,7 @@ The one Subscription currently represented by the compact desktop overlay. A use
 _Avoid_: Active account, selected account
 
 **Quota Snapshot**:
-The normalized weekly and monthly Used Amounts, limits, and reset times for one Subscription obtained from one subscription-page read.
+The normalized weekly and monthly Used Amounts and limits, with optional reset countdowns, for one Subscription obtained from one subscription-page read.
 _Avoid_: HTML data, balance cache
 
 **Used Amount**:
@@ -85,7 +85,7 @@ The safe failure state in which a subscription-page read does not contain a comp
 _Avoid_: Partial snapshot, parser fallback
 
 **Reset Countdown**:
-The locally updated day-and-hour display derived from a Subscription's reset interval. It is recalibrated on each subscription-page read and does not cause its own network request.
+The locally updated day-and-hour display derived from a Subscription's reset interval, remaining-day text, or expiry date. It is recalibrated on each subscription-page read and may be omitted when the source supplies no reset information.
 _Avoid_: Server timer, second-precision reset time
 
 **Refresh Interval**:

@@ -142,6 +142,43 @@ describe("Quota Monitor", () => {
     });
   });
 
+  it("does not issue another automatic read before the minimum refresh interval", async () => {
+    const initialReadAt = new Date("2026-08-21T01:00:00.000Z");
+    let now = initialReadAt;
+    const reader = {
+      read: vi.fn().mockResolvedValue(supportedRead)
+    };
+    const monitor = createQuotaMonitor({ reader, clock: { now: () => now } });
+
+    await monitor.start();
+    now = new Date("2026-08-21T01:04:59.999Z");
+    await monitor.refreshIfDue(5 * 60 * 1000);
+
+    expect(reader.read).toHaveBeenCalledTimes(1);
+
+    now = new Date("2026-08-21T01:05:00.000Z");
+    await monitor.refreshIfDue(5 * 60 * 1000);
+
+    expect(reader.read).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops an in-memory Quota Snapshot when Clear This Device resets the monitor", async () => {
+    const reader = {
+      read: vi.fn().mockResolvedValue(supportedRead)
+    };
+    const monitor = createQuotaMonitor({ reader });
+
+    await monitor.start();
+
+    expect(monitor.reset()).toEqual({
+      kind: "unverified",
+      reason: "starting",
+      subscriptions: [],
+      selectedSubscriptionId: undefined,
+      lastAttemptAt: undefined
+    });
+  });
+
   it("keeps Unsupported and Inactive Subscriptions identifiable when no Supported Subscription exists", async () => {
     const reader = {
       read: vi.fn().mockResolvedValue({

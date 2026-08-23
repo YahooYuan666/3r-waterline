@@ -8,12 +8,12 @@ export interface Money {
 export interface PeriodQuota {
   remainingAmount: Money;
   limit: Money;
-  resetCountdown: string;
+  resetCountdown?: string;
 }
 
 export interface QuotaSnapshot {
-  weekly: PeriodQuota;
-  monthly: PeriodQuota;
+  weekly?: PeriodQuota;
+  monthly?: PeriodQuota;
 }
 
 interface SubscriptionBase {
@@ -93,6 +93,8 @@ export interface QuotaMonitor {
   subscribe(listener: (state: QuotaMonitorState) => void): () => void;
   start(): Promise<QuotaMonitorState>;
   refresh(): Promise<QuotaMonitorState>;
+  refreshIfDue(minimumIntervalMs: number): Promise<QuotaMonitorState>;
+  reset(): QuotaMonitorState;
   selectAdjacentSupportedSubscription(offset: -1 | 1): QuotaMonitorState;
 }
 
@@ -126,7 +128,10 @@ export function createQuotaMonitor({
   function selectSubscriptionId(subscriptions: Subscription[], defaultToSupported: boolean) {
     const existingSelection = state.selectedSubscriptionId;
 
-    if (existingSelection != null && subscriptions.some((item) => item.id === existingSelection)) {
+    if (
+      existingSelection != null &&
+      subscriptions.some((item) => item.id === existingSelection && (!defaultToSupported || item.status === "supported"))
+    ) {
       return existingSelection;
     }
 
@@ -204,6 +209,14 @@ export function createQuotaMonitor({
     return readInFlight;
   }
 
+  function hasReachedMinimumInterval(minimumIntervalMs: number) {
+    const lastAttemptAt = state.lastAttemptAt;
+    return (
+      lastAttemptAt == null ||
+      clock.now().getTime() - lastAttemptAt.getTime() >= minimumIntervalMs
+    );
+  }
+
   return {
     getState: () => state,
     subscribe(listener) {
@@ -214,6 +227,24 @@ export function createQuotaMonitor({
     },
     start: readSubscriptions,
     refresh: readSubscriptions,
+    refreshIfDue(minimumIntervalMs) {
+      if (!Number.isFinite(minimumIntervalMs) || minimumIntervalMs < 0) {
+        throw new RangeError("The refresh interval must be a non-negative finite duration.");
+      }
+
+      return hasReachedMinimumInterval(minimumIntervalMs)
+        ? readSubscriptions()
+        : Promise.resolve(state);
+    },
+    reset() {
+      return publish({
+        kind: "unverified",
+        reason: "starting",
+        subscriptions: [],
+        selectedSubscriptionId: undefined,
+        lastAttemptAt: undefined
+      });
+    },
     selectAdjacentSupportedSubscription(offset) {
       const supportedSubscriptions = state.subscriptions.filter(
         (subscription): subscription is SupportedSubscription => subscription.status === "supported"

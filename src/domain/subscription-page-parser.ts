@@ -18,15 +18,18 @@ const currencySymbols: Record<string, string> = {
 const moneyNumberPattern = "((?:0|[1-9]\\d{0,2}(?:,\\d{3})*|[1-9]\\d*)(?:\\.\\d{1,2})?)";
 const symbolMoneyPattern = new RegExp(`^([\$€£¥￥])\\s*${moneyNumberPattern}$`);
 const codeMoneyPattern = new RegExp(`^([A-Z]{3})\\s+${moneyNumberPattern}$`);
-const resetCountdownPattern = /^(\d+)d\s+(\d{1,2})h$/i;
+const resetCountdownPattern = /(\d+)d\s+(\d{1,2})h/i;
+const remainingDaysPattern = /(?:剩余|remaining)\s*(\d+)\s*(?:天|days?)/i;
+const resetDatePattern = /(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:\s+|T)(\d{1,2}):(\d{2})/;
 
 export interface SubscriptionPeriodCapture {
   amounts: string;
-  reset: string;
+  reset?: string;
 }
 
 export interface SubscriptionPageCapture {
   cards: Array<{
+    id?: string;
     name: string;
     status: "active" | "inactive" | "unknown";
     weekly?: SubscriptionPeriodCapture;
@@ -64,20 +67,41 @@ function parseResetCountdown(rawValue: string | undefined) {
     return undefined;
   }
 
-  const match = rawValue.match(resetCountdownPattern);
+  const normalized = rawValue.replaceAll("\u00a0", " ").trim();
+  const match = normalized.match(resetCountdownPattern);
 
-  if (match == null) {
-    return undefined;
+  if (match != null) {
+    const days = Number(match[1]);
+    const hours = Number(match[2]);
+
+    if (!Number.isSafeInteger(days) || !Number.isSafeInteger(hours) || hours >= 24) {
+      return undefined;
+    }
+
+    return `${days}d ${hours}h`;
   }
 
-  const days = Number(match[1]);
-  const hours = Number(match[2]);
-
-  if (!Number.isSafeInteger(days) || !Number.isSafeInteger(hours) || hours >= 24) {
-    return undefined;
+  const remainingDays = normalized.match(remainingDaysPattern);
+  if (remainingDays != null) {
+    const days = Number(remainingDays[1]);
+    return Number.isSafeInteger(days) ? `${days}d 0h` : undefined;
   }
 
-  return `${days}d ${hours}h`;
+  const dateMatch = normalized.match(resetDatePattern);
+  if (dateMatch != null) {
+    const [, year, month, day, hour, minute] = dateMatch;
+    const resetAt = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute)
+    );
+    const totalHours = Math.max(0, Math.floor((resetAt.getTime() - Date.now()) / 3_600_000));
+    return `${Math.floor(totalHours / 24)}d ${totalHours % 24}h`;
+  }
+
+  return undefined;
 }
 
 function normalizePeriod(card: Element, period: "weekly" | "monthly"): PeriodQuota | undefined {
@@ -89,7 +113,6 @@ function normalizePeriod(card: Element, period: "weekly" | "monthly"): PeriodQuo
   if (
     used == null ||
     limit == null ||
-    resetCountdown == null ||
     used.currency !== limit.currency ||
     limit.amount <= 0 ||
     used.amount > limit.amount
@@ -102,7 +125,7 @@ function normalizePeriod(card: Element, period: "weekly" | "monthly"): PeriodQuo
   return {
     remainingAmount: { amount: remainingAmount, currency: limit.currency },
     limit,
-    resetCountdown
+    ...(resetCountdown == null ? {} : { resetCountdown })
   };
 }
 
@@ -133,10 +156,10 @@ function normalizeRenderedPeriod(block: Element): { period: "weekly" | "monthly"
   );
   const label = textOf(header?.children[0])?.toLowerCase();
   const pair = parseMoneyPair(textOf(header?.children[1]));
-  const resetMatch = textOf(
+  const resetText = textOf(
     Array.from(block.children).find((child) => child.tagName.toLowerCase() === "p")
-  )?.match(/(\d+d\s+\d{1,2}h)/i);
-  const resetCountdown = parseResetCountdown(resetMatch?.[1]);
+  );
+  const resetCountdown = parseResetCountdown(resetText);
 
   const period =
     label != null && /(?:周|week)/i.test(label)
@@ -148,7 +171,6 @@ function normalizeRenderedPeriod(block: Element): { period: "weekly" | "monthly"
   if (
     period == null ||
     pair == null ||
-    resetCountdown == null ||
     pair.used.currency !== pair.limit.currency ||
     pair.limit.amount <= 0 ||
     pair.used.amount > pair.limit.amount
@@ -164,7 +186,7 @@ function normalizeRenderedPeriod(block: Element): { period: "weekly" | "monthly"
         currency: pair.limit.currency
       },
       limit: pair.limit,
-      resetCountdown
+      ...(resetCountdown == null ? {} : { resetCountdown })
     }
   };
 }
@@ -191,7 +213,7 @@ function normalizeCard(card: Element, position: number): Subscription {
   const weekly = normalizePeriod(card, "weekly");
   const monthly = normalizePeriod(card, "monthly");
 
-  if (weekly == null || monthly == null) {
+  if (weekly == null && monthly == null) {
     return { id, name, status: "unsupported" };
   }
 
@@ -233,11 +255,13 @@ function renderedCapturePeriod(period: SubscriptionPeriodCapture | undefined, na
     return "";
   }
 
+  const reset = period.reset == null ? "" : `<time data-quota-reset>${escapeHtml(period.reset)}</time>`;
+
   return `
     <section data-quota-period="${name}">
       <span data-quota-used>${escapeHtml(period.amounts.split("/")[0] ?? "")}</span>
       <span data-quota-limit>${escapeHtml(period.amounts.split("/")[1] ?? "")}</span>
-      <time data-quota-reset>${escapeHtml(period.reset)}</time>
+      ${reset}
     </section>
   `;
 }
@@ -270,7 +294,7 @@ function normalizeRenderedCard(card: Element, position: number): Subscription {
   const weekly = periods.find((period) => period.period === "weekly")?.quota;
   const monthly = periods.find((period) => period.period === "monthly")?.quota;
 
-  if (weekly == null || monthly == null) {
+  if (weekly == null && monthly == null) {
     return { id, name, status: "unsupported" };
   }
 
@@ -342,20 +366,21 @@ export function parseSubscriptionPageCapture(capture: unknown): SubscriptionRead
   const cards = capture.cards.map((rawCard, position) => {
     const card = rawCard as Partial<SubscriptionPageCapture["cards"][number]>;
     const name = typeof card.name === "string" ? card.name : `未知订阅 ${position + 1}`;
-    const id = stableSubscriptionId(name, position);
+    const id = typeof card.id === "string" && card.id.trim() !== ""
+      ? card.id.trim()
+      : stableSubscriptionId(name, position);
     const status = card.status === "active" || card.status === "inactive" ? card.status : "unknown";
-    const weekly =
-      card.weekly != null &&
-      typeof card.weekly.amounts === "string" &&
-      typeof card.weekly.reset === "string"
-        ? card.weekly
-        : undefined;
-    const monthly =
-      card.monthly != null &&
-      typeof card.monthly.amounts === "string" &&
-      typeof card.monthly.reset === "string"
-        ? card.monthly
-        : undefined;
+    const isCapturePeriod = (period: unknown): period is SubscriptionPeriodCapture => {
+      if (typeof period !== "object" || period == null || !("amounts" in period)) {
+        return false;
+      }
+
+      const candidate = period as Partial<SubscriptionPeriodCapture>;
+      return typeof candidate.amounts === "string" &&
+        (candidate.reset == null || typeof candidate.reset === "string");
+    };
+    const weekly = isCapturePeriod(card.weekly) ? card.weekly : undefined;
+    const monthly = isCapturePeriod(card.monthly) ? card.monthly : undefined;
 
     return `
       <article
