@@ -1,12 +1,12 @@
 # 3R Waterline v0.1.1
 
-首个公开预览版。
+包含登录空状态修复的公开社区预览版。
 
 ## 下载
 
-- `3R Waterline_0.1.1_x64-setup.exe`：Windows 安装版（推荐）。
+- `3R.Waterline_0.1.1_x64-setup.exe`：Windows 安装版（推荐）。
 - `three_r_waterline.exe`：Windows 便携版。
-- `3R Waterline_0.1.1_universal.dmg`：macOS 通用安装镜像（Apple Silicon 与 Intel）。
+- `3R.Waterline_0.1.1_universal.dmg`：macOS 通用安装镜像（Apple Silicon 与 Intel）。
 
 ## 已包含
 
@@ -28,7 +28,8 @@
 
 ## 校验
 
-- 前端测试：43 项通过。
+- 前端测试：47 项通过。
 - Rust 测试：4 项通过。
 - Windows Tauri release 构建：通过。
+- GitHub macOS universal 构建：通过；macOS runner 前端测试 47 项通过。
 - 桌面回归：单实例、拖动、四向贴边、自动重贴边、设置工作区夹紧、Traffic 切换和二次启动均通过。
