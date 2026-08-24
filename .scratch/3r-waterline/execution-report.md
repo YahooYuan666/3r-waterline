@@ -109,3 +109,20 @@ RestoredBySecondLaunch : True
 - 贴边把手改为参考样本的密集细线：每个周期 10 段，侧贴边显示横向细线竖向密排，上/下贴边显示竖向细线横向密排，周/月分别使用绿色/蓝色，剩余比例通过亮起段数表示。
 - Traffic 中/小档恢复单行三列布局，取消上下行；中档 11px/700、小档 9px/700，金额和倒计时不再过度压缩。
 - Release `edge-autohide-check.ps1`：三项均为 `True`；窗口宽度固定逻辑保持不变。
+
+## 2026-08-24 v0.1.1 发布准备
+
+- 修复 Traffic Monitor 无额度/未登录状态被 `ResizeObserver` 压缩为标题高度的问题；空状态容器现在保留登录按钮所需的实际高度。
+- 增加 `resolveTrafficOverlayHeight` 回归测试和 Traffic 空状态渲染测试。
+- Tauri 配置开启 macOS 透明窗口所需的 `macOSPrivateApi` 与 Cargo `macos-private-api` 特性。
+- 增加 `.github/workflows/release-macos.yml`，在 `macos-14` 上构建 universal Apple Silicon/Intel DMG，并上传到既有 Release；不执行 Apple 签名或公证。
+
+## v0.1.1 本机验证
+
+- `npm test -- --run`：47 项通过。
+- `npm run build`：通过。
+- `cargo test --manifest-path src-tauri/Cargo.toml`：4 项通过。
+- `cargo check --manifest-path src-tauri/Cargo.toml`、`cargo fmt -- --check`、`git diff --check`：通过。
+- `npm run desktop:build`：Windows x64 EXE、MSI、NSIS 均生成。
+- Release 空状态桌面回归：窗口高度 `163px`，`登录 3R` 按钮可见，测试通过。
+- macOS 云构建尚待 GitHub Actions 运行；未宣称 macOS 实机验收、签名或公证。

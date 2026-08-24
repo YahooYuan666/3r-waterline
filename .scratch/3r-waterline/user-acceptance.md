@@ -21,3 +21,8 @@
 - `cargo test --manifest-path src-tauri/Cargo.toml`：4 项服务端归一化测试通过。
 - Release `scripts/edge-autohide-check.ps1`：拖到边缘、恢复、离开后自动重贴边三项均通过。
 - Release `scripts/desktop-interaction-check.ps1`：单实例、贴边恢复/重触发、设置窗口工作区夹紧、Traffic 切换、菜单消失和二次启动恢复均通过。
+
+## v0.1.1 交付说明
+
+- Windows 安装版和便携版已在 Windows 本机构建并验证。
+- macOS universal DMG 由 GitHub Actions 的 macOS 构建机生成后上传；该包是未签名社区预览版，必须由 macOS 用户自行验证官方登录、菜单栏、自动启动、贴边和系统安全提示。

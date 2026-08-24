@@ -18,7 +18,7 @@ import {
 } from "./domain/subscription-page-parser";
 import { previewSubscriptionsPageHtml } from "./domain/subscription-page-preview";
 import { isPointerNearEdge, resolveEdgeHidePlacement, type EdgeHidePlacement } from "./domain/edge-hide";
-import { clampWindowPosition, fitWindowSize } from "./domain/window-geometry";
+import { clampWindowPosition, fitWindowSize, resolveTrafficOverlayHeight } from "./domain/window-geometry";
 
 function formatMoney(money: Money, fractionDigits = 2) {
   return new Intl.NumberFormat("en-US", {
@@ -229,7 +229,7 @@ export function WaterlineOverlay({
               onNavigate={onNavigate}
             />
             <div
-              className={`${displayMode === "traffic" ? "quota-vessel traffic-monitor" : "quota-vessel"} ui-scale-${uiScale}`}
+              className={`${displayMode === "traffic" ? "quota-vessel traffic-monitor" : "quota-vessel"}${quotaSnapshot == null ? " empty-quota-state" : ""} ui-scale-${uiScale}`}
               aria-label={
                 quotaSnapshot
                   ? displayMode === "traffic"
@@ -890,13 +890,18 @@ export default function App() {
     let resizeInFlight = false;
     let disposed = false;
     const width = uiScale === "large" ? 240 : uiScale === "medium" ? 200 : 164;
+    const emptyStateHeight = uiScale === "large" ? 164 : uiScale === "medium" ? 136 : 116;
+    const hasVisibleQuota = state.kind === "verified" && state.subscriptions.some(
+      (subscription) => subscription.status === "supported" &&
+        (subscription.quotaSnapshot.weekly != null || subscription.quotaSnapshot.monthly != null)
+    );
     const resizeToIntrinsicContent = async () => {
       if (disposed || resizeInFlight) {
         return;
       }
 
       const rect = overlay.getBoundingClientRect();
-      const height = Math.ceil(rect.height);
+      const height = resolveTrafficOverlayHeight(rect.height, hasVisibleQuota ? 1 : emptyStateHeight);
       if (height <= 0) {
         return;
       }
@@ -918,7 +923,7 @@ export default function App() {
       disposed = true;
       observer.disconnect();
     };
-  }, [displayMode, edgeHidden, loginOpen, nativeRuntime, settingsOpen, uiScale]);
+  }, [displayMode, edgeHidden, loginOpen, nativeRuntime, settingsOpen, state, uiScale]);
 
   useEffect(() => {
     if (autoCycleIntervalMs <= 0) {

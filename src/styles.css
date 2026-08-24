@@ -389,6 +389,67 @@ button:focus-visible {
   height: auto;
 }
 
+/* The empty state includes a sign-in action. Unlike the quota bars it cannot
+   derive height from in-flow children, because the message is positioned over
+   the vessel. Give the traffic container an explicit height so that action
+   remains visible and keyboard-accessible. */
+.traffic-monitor.empty-quota-state {
+  height: 140px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-medium {
+  height: 112px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-small {
+  height: 92px;
+}
+
+.traffic-monitor.empty-quota-state .empty-vessel {
+  gap: 6px;
+  padding: 16px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-medium .empty-vessel {
+  gap: 4px;
+  padding: 10px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-medium .empty-vessel > svg {
+  width: 24px;
+  height: 24px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-medium .empty-vessel p,
+.traffic-monitor.empty-quota-state.ui-scale-medium .empty-vessel-login {
+  font-size: 11px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-medium .empty-vessel-login {
+  min-height: 24px;
+  padding: 3px 8px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-small .empty-vessel {
+  gap: 3px;
+  padding: 6px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-small .empty-vessel > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-small .empty-vessel p,
+.traffic-monitor.empty-quota-state.ui-scale-small .empty-vessel-login {
+  font-size: 9px;
+}
+
+.traffic-monitor.empty-quota-state.ui-scale-small .empty-vessel-login {
+  min-height: 20px;
+  padding: 2px 6px;
+}
+
 .edge-hide-tab {
   position: absolute;
   inset: 0 0 0 auto;

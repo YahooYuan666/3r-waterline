@@ -355,6 +355,26 @@ describe("WaterlineOverlay", () => {
     expect(onLogin).toHaveBeenCalledTimes(1);
   });
 
+  it("reserves a real traffic container for the unauthenticated login action", () => {
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "unverified",
+          reason: "authentication-required",
+          subscriptions: [],
+          selectedSubscriptionId: undefined,
+          lastAttemptAt: new Date("2026-08-21T01:00:00.000Z")
+        }}
+        onNavigate={vi.fn()}
+        onLogin={vi.fn()}
+        displayMode="traffic"
+      />
+    );
+
+    expect(document.querySelector(".traffic-monitor.empty-quota-state")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "登录 3R" })).toBeTruthy();
+  });
+
   it("offers login immediately while the initial quota check is starting", () => {
     const onLogin = vi.fn();
 

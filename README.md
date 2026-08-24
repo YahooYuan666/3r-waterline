@@ -4,11 +4,12 @@
 
 ## 当前版本
 
-`v0.1.0` 已提供 Windows 构建文件：
+`v0.1.1` 提供 Windows 和 macOS 社区预览构建：
 
-- `3R Waterline_0.1.0_x64-setup.exe`：Windows 安装版（NSIS，推荐）。
+- `3R Waterline_0.1.1_x64-setup.exe`：Windows 安装版（NSIS，推荐）。
 - `three_r_waterline.exe`：Windows 便携版，无需安装。
-- 同目录也保留 `3R Waterline_0.1.0_x64_en-US.msi`，供需要 MSI 的 Windows 用户选择。
+- `3R Waterline_0.1.1_universal.dmg`：macOS 通用安装镜像（Apple Silicon 与 Intel）。
+- Windows 构建同时会生成 MSI；当前公开 Release 以 NSIS 安装版和便携版为主。
 
 ## 功能
 
@@ -46,11 +47,11 @@ npm run desktop:dev
 npm run desktop:build
 ```
 
-macOS 构建需要在 macOS 主机上运行 Tauri 构建，并完成 Apple 签名与公证；当前仓库已保留跨平台 Tauri 配置，Windows 构建不会伪造 macOS 发布文件。
+macOS 构建由 GitHub 的 macOS 构建机生成通用 DMG。该包未完成 Apple Developer 签名、公证或真实 Mac 登录流程验收；首次打开时 macOS 可能要求用户在“系统设置 → 隐私与安全性”中明确允许。社区用户可自行构建和修复平台差异。
 
 ## 发布
 
-仓库采用 Public GitHub repository。推荐使用 GitHub CLI/API 完成仓库创建、推送和 Release 上传，不需要先打开 GitHub 网页手动创建项目。当前 Release 只宣称 Windows 构建；macOS 使用同一 Tauri 框架，但尚未在真实 macOS 设备上完成验收、签名和公证，社区用户可自行构建验证。详见 [release-notes.md](release-notes.md)。
+仓库采用 Public GitHub repository。推荐使用 GitHub CLI/API 完成仓库创建、推送和 Release 上传，不需要先打开 GitHub 网页手动创建项目。macOS 使用同一 Tauri 框架；Release 提供未签名的社区构建，但不宣称 Apple 签名、公证或真实 macOS 环境验收。详见 [release-notes.md](release-notes.md)。
 
 ## 许可证
 
