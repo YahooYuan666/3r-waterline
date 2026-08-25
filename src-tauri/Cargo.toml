@@ -1,6 +1,6 @@
 [package]
 name = "three_r_waterline"
-version = "0.1.1"
+version = "0.1.2"
 description = "A compact 3R subscription quota overlay"
 authors = ["3R Waterline"]
 license = "UNLICENSED"
