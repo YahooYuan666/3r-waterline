@@ -325,8 +325,15 @@ async fn refresh_session(session: &AuthSession) -> Result<AuthSession, String> {
         .json::<Value>()
         .await
         .map_err(|error| format!("官方接口响应不是有效 JSON: {error}"))?;
-    if !status.is_success() {
+    if is_authentication_status(status) {
         return Err("AUTHENTICATION_REQUIRED".to_string());
+    }
+    if !status.is_success() {
+        return Err(body
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("3R 官方接口暂时不可用")
+            .to_string());
     }
     let data = response_data(body)?;
     let access_token = data
@@ -364,7 +371,7 @@ async fn fetch_subscription_capture(token: &str) -> Result<String, String> {
         .json::<Value>()
         .await
         .map_err(|error| format!("官方接口响应不是有效 JSON: {error}"))?;
-    if status == reqwest::StatusCode::UNAUTHORIZED {
+    if is_authentication_status(status) {
         return Err("AUTHENTICATION_REQUIRED".to_string());
     }
     if !status.is_success() {
@@ -402,7 +409,7 @@ async fn fetch_available_balance(token: &str) -> Result<Option<String>, String> 
         Ok(body) => body,
         Err(_) => return Ok(None),
     };
-    if status == reqwest::StatusCode::UNAUTHORIZED {
+    if is_authentication_status(status) {
         return Err("AUTHENTICATION_REQUIRED".to_string());
     }
     if !status.is_success() {
@@ -486,9 +493,11 @@ async fn request_subscription_capture(
         session = match refresh_session(&session).await {
             Ok(refreshed) => refreshed,
             Err(error) => {
-                clear_session();
-                if let Ok(mut current) = auth.0.lock() {
-                    *current = None;
+                if error == "AUTHENTICATION_REQUIRED" {
+                    clear_session();
+                    if let Ok(mut current) = auth.0.lock() {
+                        *current = None;
+                    }
                 }
                 return Err(error);
             }
@@ -510,6 +519,10 @@ async fn request_subscription_capture(
         }
         Err(error) => Err(error),
     }
+}
+
+fn is_authentication_status(status: reqwest::StatusCode) -> bool {
+    status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN
 }
 
 #[tauri::command]
@@ -829,5 +842,15 @@ mod tests {
             available_balance_usd(&json!({ "id": 1, "email": "ignored@example.test" })),
             None
         );
+    }
+
+    #[test]
+    fn only_authentication_http_statuses_invalidate_the_session() {
+        assert!(is_authentication_status(reqwest::StatusCode::UNAUTHORIZED));
+        assert!(is_authentication_status(reqwest::StatusCode::FORBIDDEN));
+        assert!(!is_authentication_status(reqwest::StatusCode::BAD_GATEWAY));
+        assert!(!is_authentication_status(
+            reqwest::StatusCode::SERVICE_UNAVAILABLE
+        ));
     }
 }

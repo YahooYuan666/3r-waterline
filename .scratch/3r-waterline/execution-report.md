@@ -157,3 +157,25 @@ RestoredBySecondLaunch : True
 - 两条任务均成功：Windows <https://github.com/YahooYuan666/3r-waterline/actions/runs/32864298704>；macOS <https://github.com/YahooYuan666/3r-waterline/actions/runs/32864302489>。
 - Release API 实际资产核验：`3R.Waterline_0.1.2_x64-setup.exe`（3,566,272 bytes）、`three_r_waterline.exe`（13,800,448 bytes）、`3R.Waterline_0.1.2_universal.dmg`（11,089,433 bytes）。公开地址：<https://github.com/YahooYuan666/3r-waterline/releases/tag/v0.1.2>。
 - macOS 包由云端构建成功，但没有 Apple 签名、公证或物理 Mac 的交互验收；发布说明已如实保留该限制。
+
+## 2026-08-26 连接失败状态修复
+
+### 根因
+
+- `createNativeSubscriptionsPageReader` 原先将 Tauri `invoke` 的所有异常都包装为 `AuthenticationRequiredError`。
+- 原生端令牌刷新遇到网络错误或非认证服务端错误时，原先无条件清除系统安全存储中的 Login State。
+
+### 修复
+
+- 仅把明确的 `AUTHENTICATION_REQUIRED` 与 HTTP 401/403 视为认证失效；网络错误、无效响应和 5xx 保留会话并进入可重试的连接失败状态。
+- 已验证的额度刷新失败时保留上次额度，显示中性文案并提供“重新连接”按钮；初次连接失败也提供该按钮。
+
+### 验证
+
+- `npm test -- --run`：52 项通过。
+- `npm run build`：通过。
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`：通过。
+- `cargo test --manifest-path src-tauri/Cargo.toml`：6 项通过。
+- `cargo check --manifest-path src-tauri/Cargo.toml`：通过。
+- `npm run desktop:build`：成功生成 v0.1.2 Windows MSI、NSIS 和便携 EXE。
+- `git diff --check`：通过。

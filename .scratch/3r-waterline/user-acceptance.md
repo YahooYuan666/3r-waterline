@@ -11,6 +11,8 @@
 7. 点击“清除本机登录信息”，确认当前额度立即消失、Auto-start 被关闭；重启后确认程序不能展示前一用户的额度，并要求重新登录。
 8. 如果网页取消周限额或调整月上限，等待下一次五分钟读取；确认周栏消失、月上限更新，不显示猜测值。对小加油包这类只显示“剩余 N 天（截止日期）”的订阅，确认额度仍显示，若没有可用 reset 文本则只隐藏“后重置”一行。Windows 调试程序路径：`src-tauri/target/debug/three_r_waterline.exe`。本次可交付安装包路径：`src-tauri/target/release/bundle/msi/3R Waterline_0.1.2_x64_en-US.msi`、`src-tauri/target/release/bundle/nsis/3R Waterline_0.1.2_x64-setup.exe`，便携版为 `src-tauri/target/release/three_r_waterline.exe`。
 
+9. 模拟或等待一次网络不可达/服务暂时不可用的刷新：如果此前已有额度，确认额度仍保留，提示为“暂时无法连接 3R，保留上次额度”并出现“重新连接”；若本次启动尚未成功读取，显示“暂时无法连接 3R”并出现“重新连接”。网络异常不应自动显示“需要重新登录”或清除本机登录信息。
+
 ## 当前限制
 
 - Windows 打包与原生交互已在本机构建验证；macOS 的 Login State、透明悬浮窗和 Auto-start 仍需要在真实 macOS 设备上验收并完成签名/公证。

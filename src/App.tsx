@@ -120,7 +120,7 @@ function statusText(state: QuotaMonitorState) {
     }
 
     if (state.reason === "read-failed") {
-      return "暂时无法验证额度";
+      return "暂时无法连接 3R";
     }
 
     if (state.reason === "schema-mismatch") {
@@ -133,7 +133,15 @@ function statusText(state: QuotaMonitorState) {
       return "订阅页面格式已变更";
     }
 
-    return state.updateFailure === "authentication-required" ? "需要重新登录 3R" : "上次更新失败";
+    if (state.updateFailure === "authentication-required") {
+      return "暂时无法确认连接或登录状态";
+    }
+
+    if (state.updateFailure === "read-failed") {
+      return "暂时无法连接 3R，保留上次额度";
+    }
+
+    return "上次更新失败";
   }
 
   return "额度暂不可用";
@@ -157,6 +165,7 @@ interface WaterlineOverlayProps {
   onEdgeMouseEnter?: () => void;
   autoCycleIntervalMs?: number;
   loginError?: string;
+  onRetry?: () => void;
 }
 
 export function WaterlineOverlay({
@@ -175,7 +184,8 @@ export function WaterlineOverlay({
   edgeHideEdge = "right",
   onEdgeMouseLeave,
   onEdgeMouseEnter,
-  loginError
+  loginError,
+  onRetry
 }: WaterlineOverlayProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number }>();
   const supportedSubscriptions = state.subscriptions.filter(
@@ -198,6 +208,17 @@ export function WaterlineOverlay({
     state.kind === "unverified" &&
     (state.reason === "starting" || state.reason === "authentication-required") &&
     onLogin != null;
+  const canRetry =
+    onRetry != null &&
+    ((state.kind === "unverified" && state.reason === "read-failed") ||
+      (state.kind === "verified" &&
+        state.freshness === "update-failed" &&
+        (state.updateFailure === "read-failed" || state.updateFailure === "authentication-required")));
+  const canReauthenticate =
+    onLogin != null &&
+    state.kind === "verified" &&
+    state.freshness === "update-failed" &&
+    state.updateFailure === "authentication-required";
 
   const closeContextMenu = (action?: () => void) => {
     setContextMenu(undefined);
@@ -271,7 +292,21 @@ export function WaterlineOverlay({
                   {quotaSnapshot.monthly && (
                     <TrafficBar periodLabel="月" period={quotaSnapshot.monthly} tone="monthly" compact={uiScale !== "large"} />
                   )}
-                  {stateNotice && <p className="traffic-notice">{stateNotice}</p>}
+                  {stateNotice && (
+                    <div className="traffic-notice" aria-live="polite">
+                      <span>{stateNotice}</span>
+                      {canRetry && (
+                        <button type="button" className="retry-connection" onClick={onRetry}>
+                          重新连接
+                        </button>
+                      )}
+                      {canReauthenticate && (
+                        <button type="button" className="retry-connection" onClick={onLogin}>
+                          登录 3R
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
@@ -298,9 +333,19 @@ export function WaterlineOverlay({
                     )}
                   </div>
                   {stateNotice && (
-                    <p className="state-notice" aria-live="polite">
-                      {stateNotice}
-                    </p>
+                    <div className="state-notice" aria-live="polite">
+                      <span>{stateNotice}</span>
+                      {canRetry && (
+                        <button type="button" className="retry-connection" onClick={onRetry}>
+                          重新连接
+                        </button>
+                      )}
+                      {canReauthenticate && (
+                        <button type="button" className="retry-connection" onClick={onLogin}>
+                          登录 3R
+                        </button>
+                      )}
+                    </div>
                   )}
                 </>
               )
@@ -312,6 +357,11 @@ export function WaterlineOverlay({
                   <button className="empty-vessel-login" type="button" onClick={onLogin}>
                     <LogIn size={15} aria-hidden="true" />
                     <span>登录 3R</span>
+                  </button>
+                )}
+                {canRetry && (
+                  <button className="empty-vessel-login" type="button" onClick={onRetry}>
+                    <span>重新连接</span>
                   </button>
                 )}
               </div>
@@ -510,6 +560,15 @@ function isTauriRuntime() {
   return isTauri();
 }
 
+export function classifyNativeReadError(error: unknown): Error {
+  const message = typeof error === "string" ? error : error instanceof Error ? error.message : "";
+  if (message === "AUTHENTICATION_REQUIRED") {
+    return new AuthenticationRequiredError();
+  }
+
+  return error instanceof Error ? error : new Error(message || "无法读取 3R 订阅信息");
+}
+
 function createNativeSubscriptionsPageReader() {
   return {
     async read() {
@@ -519,8 +578,8 @@ function createNativeSubscriptionsPageReader() {
         const { invoke } = await import("@tauri-apps/api/core");
         const encodedCapture = await invoke<string>("request_subscription_capture");
         capture = JSON.parse(encodedCapture) as SubscriptionPageCapture;
-      } catch {
-        throw new AuthenticationRequiredError();
+      } catch (error) {
+        throw classifyNativeReadError(error);
       }
 
       return parseSubscriptionPageCapture(capture);
@@ -1019,6 +1078,10 @@ export default function App() {
     }
   }, [displayMode, email, loginBusy, monitor, nativeRuntime, password, resizeOverlay]);
 
+  const retryConnection = useCallback(() => {
+    void monitor.refresh();
+  }, [monitor]);
+
   useEffect(() => {
     const unsubscribe = monitor.subscribe(setState);
     void monitor.start();
@@ -1191,6 +1254,7 @@ export default function App() {
         edgeHidden={edgeHidden}
         edgeHideEdge={edgeHideEdge}
         loginError={loginError}
+        onRetry={nativeRuntime ? retryConnection : undefined}
       />
       {nativeRuntime && loginOpen && (
         <div className="login-backdrop" role="presentation">

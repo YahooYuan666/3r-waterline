@@ -293,6 +293,32 @@ button:focus-visible {
   text-shadow: 0 1px 2px rgb(0 0 0 / 70%);
 }
 
+.state-notice,
+.traffic-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.retry-connection {
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid rgb(255 255 255 / 48%);
+  border-radius: 5px;
+  color: #ffffff;
+  background: rgb(10 34 25 / 56%);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.retry-connection:hover,
+.retry-connection:focus-visible {
+  background: rgb(10 34 25 / 78%);
+}
+
 .empty-vessel {
   position: absolute;
   inset: 0;
@@ -694,6 +720,7 @@ button:focus-visible {
 
 .traffic-notice {
   margin: -5px 0 0;
+  display: flex;
   color: #365846;
   font-size: 11px;
   font-weight: 700;
@@ -1202,6 +1229,17 @@ button:focus-visible {
 
 .traffic-notice {
   color: #ffd0d0;
+}
+
+.retry-connection {
+  border-color: rgb(193 216 233 / 52%);
+  color: #eef7ff;
+  background: rgb(20 40 55 / 78%);
+}
+
+.retry-connection:hover,
+.retry-connection:focus-visible {
+  background: rgb(36 67 89 / 92%);
 }
 
 .direct-balance-surface {

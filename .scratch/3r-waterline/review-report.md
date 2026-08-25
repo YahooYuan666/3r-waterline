@@ -113,3 +113,11 @@ RestoredBySecondLaunch : True
 - 独立读取 GitHub Releases API，确认 `v0.1.2` 为公开、非草稿、非预发布。
 - 资产清单包含且仅包含本次承诺的三种分发文件：Windows NSIS 安装版、Windows 便携 EXE、macOS Universal DMG；文件分别为 3,566,272、13,800,448、11,089,433 bytes，均带有 GitHub 下载地址。
 - 复核的云端构建均为 `success`：Windows run `32864298704`、macOS run `32864302489`。因此发布项已满足可下载资产的验收条件；未将云端 macOS 打包成功误表述为签名、公证或真实 Mac 功能验收。
+
+## 2026-08-26 连接失败状态复核
+
+- 独立检查确认原生读取器现在只把精确错误 `AUTHENTICATION_REQUIRED` 转为认证异常；普通网络错误保留为普通 `Error`，由 `QuotaMonitor` 归入 `read-failed`。
+- 独立检查确认令牌刷新只在 401/403 时清除 Login State；网络失败、无效响应和 5xx 不会清除会话。
+- 前端回归覆盖：初次连接失败的中性文案与“重新连接”按钮；已验证额度保留、刷新失败文案与按钮；原生错误分类。
+- Rust 回归覆盖：401/403 为认证状态，502/503 不为认证状态。
+- 本轮验证结果：前端 52 tests、Rust 6 tests、生产构建、Cargo check/fmt、Windows release 打包均通过。

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WaterlineOverlay } from "./App";
+import { classifyNativeReadError, WaterlineOverlay } from "./App";
+import { AuthenticationRequiredError } from "./domain/quota-monitor";
 import type { QuotaMonitorState, Subscription } from "./domain/quota-monitor";
 
 const supportedSubscription: Subscription = {
@@ -274,7 +275,7 @@ describe("WaterlineOverlay", () => {
       lastAttemptAt: new Date("2026-08-21T01:00:00.000Z")
     });
 
-    expect(screen.getByText("暂时无法验证额度")).toBeTruthy();
+    expect(screen.getByText("暂时无法连接 3R")).toBeTruthy();
 
     rerender(
       <WaterlineOverlay
@@ -304,7 +305,7 @@ describe("WaterlineOverlay", () => {
         onNavigate={vi.fn()}
       />
     );
-    expect(screen.getByText("上次更新失败")).toBeTruthy();
+    expect(screen.getByText("暂时无法连接 3R，保留上次额度")).toBeTruthy();
 
     rerender(
       <WaterlineOverlay
@@ -362,6 +363,88 @@ describe("WaterlineOverlay", () => {
     expect(screen.getByText("额度暂不可用")).toBeTruthy();
     expect(screen.queryByText("此订阅暂不支持")).toBeNull();
     expect(screen.queryByText("订阅已失效")).toBeNull();
+  });
+
+  it("offers a neutral retry action for a transient connection failure", () => {
+    const onRetry = vi.fn();
+
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "unverified",
+          reason: "read-failed",
+          subscriptions: [],
+          selectedSubscriptionId: undefined,
+          lastAttemptAt: new Date("2026-08-21T01:00:00.000Z")
+        }}
+        onNavigate={vi.fn()}
+        onRetry={onRetry}
+      />
+    );
+
+    expect(screen.getByText("暂时无法连接 3R")).toBeTruthy();
+    const retry = screen.getByRole("button", { name: "重新连接" });
+    retry.click();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("需要重新登录 3R")).toBeNull();
+  });
+
+  it("keeps the last verified quota visible while offering retry after refresh loss", () => {
+    const onRetry = vi.fn();
+
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "verified",
+          selectedSubscriptionId: "gpt-4x",
+          subscriptions: [supportedSubscription],
+          lastAttemptAt: new Date("2026-08-21T01:05:00.000Z"),
+          lastVerifiedAt: new Date("2026-08-21T01:00:00.000Z"),
+          freshness: "update-failed",
+          updateFailure: "read-failed"
+        }}
+        onNavigate={vi.fn()}
+        onRetry={onRetry}
+      />
+    );
+
+    expect(screen.getByText("$326.54")).toBeTruthy();
+    expect(screen.getByText("暂时无法连接 3R，保留上次额度")).toBeTruthy();
+    screen.getByRole("button", { name: "重新连接" }).click();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers login only alongside a confirmed authentication failure", () => {
+    const onLogin = vi.fn();
+
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "verified",
+          selectedSubscriptionId: "gpt-4x",
+          subscriptions: [supportedSubscription],
+          lastAttemptAt: new Date("2026-08-21T01:05:00.000Z"),
+          lastVerifiedAt: new Date("2026-08-21T01:00:00.000Z"),
+          freshness: "update-failed",
+          updateFailure: "authentication-required"
+        }}
+        onNavigate={vi.fn()}
+        onLogin={onLogin}
+        onRetry={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("暂时无法确认连接或登录状态")).toBeTruthy();
+    screen.getByRole("button", { name: "登录 3R" }).click();
+    expect(onLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps transient native errors separate from authentication failures", () => {
+    const connectionError = classifyNativeReadError("无法连接 3R 官方接口: network unavailable");
+    const authError = classifyNativeReadError("AUTHENTICATION_REQUIRED");
+
+    expect(connectionError).not.toBeInstanceOf(AuthenticationRequiredError);
+    expect(authError).toBeInstanceOf(AuthenticationRequiredError);
   });
 
   it("offers the official 3R login command only when no Login State is available", () => {
