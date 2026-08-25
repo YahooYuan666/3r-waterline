@@ -1,0 +1,54 @@
+name: Build Windows community release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub Release tag to receive the Windows assets
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    name: Build Windows installer and portable executable
+    runs-on: windows-latest
+    steps:
+      - name: Check out the release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm test -- --run
+
+      - name: Build Windows release
+        run: npm run desktop:build
+
+      - name: Upload Windows community assets to the existing Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $version = $env:RELEASE_TAG.TrimStart('v')
+          $installer = Get-ChildItem 'src-tauri\target\release\bundle\nsis\*_x64-setup.exe' | Select-Object -First 1
+          if ($null -eq $installer) { throw 'NSIS installer was not produced.' }
+          $portable = 'src-tauri\target\release\three_r_waterline.exe'
+          if (-not (Test-Path -LiteralPath $portable)) { throw 'Portable executable was not produced.' }
+          gh release upload $env:RELEASE_TAG "$($installer.FullName)#3R.Waterline_${version}_x64-setup.exe" --clobber
+          gh release upload $env:RELEASE_TAG "$portable#three_r_waterline.exe" --clobber
