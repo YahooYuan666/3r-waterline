@@ -45,7 +45,7 @@ One subscription card belonging to the active 3R Account. A 3R Account may have 
 _Avoid_: Subaccount, plan data
 
 **Direct Balance**:
-The single current CNY available-balance amount issued for the active 3R Account, presented in the application as `Grok 直充余额`. It is an optional selectable display item, not a quota period: it has no limit, water-level percentage, reset time, or inferred expiry.
+The single current USD available-balance amount issued for the active 3R Account, presented in the application as `Grok 直充余额`. It is an optional selectable display item, not a quota period: it has no limit, water-level percentage, reset time, or inferred expiry.
 _Avoid_: Monthly quota, subscription limit, cached account balance
 
 **Supported Subscription**:

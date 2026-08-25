@@ -395,9 +395,9 @@ describe("subscription page parser", () => {
     ]);
   });
 
-  it("adds a selectable Grok direct-balance display item only for a valid CNY balance", () => {
+  it("adds a selectable Grok direct-balance display item only for a valid USD balance", () => {
     const result = parseSubscriptionPageCapture({
-      availableBalance: "¥297.46",
+      availableBalance: "$297.46",
       cards: [
         {
           name: "GPT 4x",
@@ -412,11 +412,11 @@ describe("subscription page parser", () => {
       name: "Grok 直充余额",
       status: "supported",
       kind: "direct-balance",
-      availableBalance: { amount: 297.46, currency: "CNY" }
+      availableBalance: { amount: 297.46, currency: "USD" }
     });
 
     const withoutBalance = parseSubscriptionPageCapture({
-      availableBalance: "¥-1.00",
+      availableBalance: "$-1.00",
       cards: [
         {
           name: "GPT 4x",

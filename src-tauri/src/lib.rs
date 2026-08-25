@@ -174,7 +174,7 @@ fn usd_pair(used: Option<f64>, limit: Option<f64>) -> Option<String> {
     Some(format!("${used:.2} / ${limit:.2}"))
 }
 
-fn available_balance_cny(value: &Value) -> Option<String> {
+fn available_balance_usd(value: &Value) -> Option<String> {
     let account = value.get("user").unwrap_or(value);
     let balance = numeric_field_any(
         account,
@@ -189,7 +189,7 @@ fn available_balance_cny(value: &Value) -> Option<String> {
         return None;
     }
 
-    Some(format!("¥{balance:.2}"))
+    Some(format!("${balance:.2}"))
 }
 
 fn subscriptions_to_capture(value: Value) -> Result<String, String> {
@@ -412,7 +412,7 @@ async fn fetch_available_balance(token: &str) -> Result<Option<String>, String> 
     }
 
     let data = response_data(body).ok();
-    Ok(data.as_ref().and_then(available_balance_cny))
+    Ok(data.as_ref().and_then(available_balance_usd))
 }
 
 #[tauri::command]
@@ -817,16 +817,16 @@ mod tests {
     #[test]
     fn extracts_only_a_valid_non_negative_available_balance() {
         assert_eq!(
-            available_balance_cny(&json!({ "balance": 297.46 })),
-            Some("¥297.46".to_string())
+            available_balance_usd(&json!({ "balance": 297.46 })),
+            Some("$297.46".to_string())
         );
         assert_eq!(
-            available_balance_cny(&json!({ "user": { "available_balance": "12.5" } })),
-            Some("¥12.50".to_string())
+            available_balance_usd(&json!({ "user": { "available_balance": "12.5" } })),
+            Some("$12.50".to_string())
         );
-        assert_eq!(available_balance_cny(&json!({ "balance": -1 })), None);
+        assert_eq!(available_balance_usd(&json!({ "balance": -1 })), None);
         assert_eq!(
-            available_balance_cny(&json!({ "id": 1, "email": "ignored@example.test" })),
+            available_balance_usd(&json!({ "id": 1, "email": "ignored@example.test" })),
             None
         );
     }

@@ -33,7 +33,7 @@ describe("WaterlineOverlay", () => {
     name: "Grok 直充余额",
     status: "supported",
     kind: "direct-balance",
-    availableBalance: { amount: 298.69, currency: "CNY" }
+    availableBalance: { amount: 298.69, currency: "USD" }
   };
 
   it("renders Remaining Amounts from the published Verified Snapshot", () => {
@@ -104,7 +104,7 @@ describe("WaterlineOverlay", () => {
 
     const balance = screen.getByLabelText("Grok 直充余额");
     expect(balance.textContent).toContain("可用余额");
-    expect(balance.textContent).toContain("¥298.69");
+    expect(balance.textContent).toContain("$298.69");
     expect(balance.textContent).not.toContain("后重置");
     expect(balance.textContent).not.toContain("/");
   });

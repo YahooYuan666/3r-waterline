@@ -1304,6 +1304,40 @@ button:focus-visible {
   font-size: 13px;
 }
 
+/* The selected subscription is a primary datum too: keep it legible over
+   either quota colour without changing its navigation or drag targets. */
+.subscription-header {
+  height: 22px;
+  grid-template-columns: 20px minmax(0, 1fr) 20px;
+}
+
+.subscription-header strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  padding: 3px 5px;
+  border: 1px solid rgb(193 216 233 / 16%);
+  border-radius: 5px;
+  background: rgb(7 12 18 / 82%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%), 0 1px 3px rgb(0 0 0 / 28%);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.waterline-stage.ui-scale-medium .subscription-header strong {
+  padding: 3px 4px;
+  font-size: 11px;
+}
+
+.waterline-stage.ui-scale-small .subscription-header strong {
+  padding: 3px;
+  font-size: 9px;
+}
+
 .edge-hide-tab {
   border-color: rgb(193 216 233 / 42%);
   background: linear-gradient(180deg, rgb(23 33 44 / 98%), rgb(7 12 18 / 96%));

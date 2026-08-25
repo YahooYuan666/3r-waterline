@@ -1,5 +1,5 @@
 export const previewSubscriptionsPageHtml = `
-  <main data-3r-subscriptions="v1" data-3r-available-balance="¥298.69">
+  <main data-3r-subscriptions="v1" data-3r-available-balance="$298.69">
     <article
       data-3r-subscription-card
       data-subscription-id="gpt-4x"
