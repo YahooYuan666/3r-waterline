@@ -149,3 +149,11 @@ RestoredBySecondLaunch : True
 
 - 本机已有用户正在运行的安装版位于 `D:\Program\three_r_waterline.exe`。全局单实例机制会将新 release 的启动请求交给该现有进程，因此 `desktop-interaction-check.ps1` 和 `edge-autohide-check.ps1` 无法获取新 release 窗口。为避免中断用户正在运行的应用，没有强制结束该进程。
 - 因此本轮没有把旧安装版的运行状态当作新 build 的原生回归通过证据；需在用户关闭安装版后对新 release 重跑两个脚本。
+
+## 2026-08-25 v0.1.2 公开发布
+
+- 新版保留旧的公开 `v0.1.1`，不覆盖其历史资产；公开发布目标为 `v0.1.2`。
+- 由于本机到 GitHub 上传域名的网络连接不稳定，改由 GitHub Actions 官方 runner 从 `v0.1.2` 标签源码构建并上传。新增 Windows 发布工作流，macOS 使用既有 `macos-14` Universal 工作流。
+- 两条任务均成功：Windows <https://github.com/YahooYuan666/3r-waterline/actions/runs/32864298704>；macOS <https://github.com/YahooYuan666/3r-waterline/actions/runs/32864302489>。
+- Release API 实际资产核验：`3R.Waterline_0.1.2_x64-setup.exe`（3,566,272 bytes）、`three_r_waterline.exe`（13,800,448 bytes）、`3R.Waterline_0.1.2_universal.dmg`（11,089,433 bytes）。公开地址：<https://github.com/YahooYuan666/3r-waterline/releases/tag/v0.1.2>。
+- macOS 包由云端构建成功，但没有 Apple 签名、公证或物理 Mac 的交互验收；发布说明已如实保留该限制。

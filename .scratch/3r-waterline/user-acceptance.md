@@ -9,7 +9,7 @@
 5. 把悬浮窗拖到屏幕左、右、上或下边缘并松开，确认约 250ms 后仅保留清晰可见的 14px 点阵把手；点阵分别反映当前周/月剩余比例。鼠标移入把手后完整悬浮窗恢复，鼠标移开后自动重新贴边；拖动悬浮窗离开边缘后才解除贴边状态。
 6. 登录成功后，打开设置确认“开机自动启动”已启用；关闭它后重启程序，确认设置保持关闭。重新启用后，确认系统登录后自动启动程序，并在启动时立即读取最新额度，之后不早于 5 分钟再次请求。
 7. 点击“清除本机登录信息”，确认当前额度立即消失、Auto-start 被关闭；重启后确认程序不能展示前一用户的额度，并要求重新登录。
-8. 如果网页取消周限额或调整月上限，等待下一次五分钟读取；确认周栏消失、月上限更新，不显示猜测值。对小加油包这类只显示“剩余 N 天（截止日期）”的订阅，确认额度仍显示，若没有可用 reset 文本则只隐藏“后重置”一行。Windows 调试程序路径：`src-tauri/target/debug/three_r_waterline.exe`。本次可交付安装包路径：`src-tauri/target/release/bundle/msi/3R Waterline_0.1.1_x64_en-US.msi`、`src-tauri/target/release/bundle/nsis/3R Waterline_0.1.1_x64-setup.exe`，便携版为 `src-tauri/target/release/three_r_waterline.exe`。
+8. 如果网页取消周限额或调整月上限，等待下一次五分钟读取；确认周栏消失、月上限更新，不显示猜测值。对小加油包这类只显示“剩余 N 天（截止日期）”的订阅，确认额度仍显示，若没有可用 reset 文本则只隐藏“后重置”一行。Windows 调试程序路径：`src-tauri/target/debug/three_r_waterline.exe`。本次可交付安装包路径：`src-tauri/target/release/bundle/msi/3R Waterline_0.1.2_x64_en-US.msi`、`src-tauri/target/release/bundle/nsis/3R Waterline_0.1.2_x64-setup.exe`，便携版为 `src-tauri/target/release/three_r_waterline.exe`。
 
 ## 当前限制
 
@@ -22,7 +22,8 @@
 - Release `scripts/edge-autohide-check.ps1`：拖到边缘、恢复、离开后自动重贴边三项均通过。
 - Release `scripts/desktop-interaction-check.ps1`：单实例、贴边恢复/重触发、设置窗口工作区夹紧、Traffic 切换、菜单消失和二次启动恢复均通过。
 
-## v0.1.1 交付说明
+## v0.1.2 交付说明
 
-- Windows 安装版和便携版已在 Windows 本机构建并验证。
-- macOS universal DMG 由 GitHub Actions 的 macOS 构建机生成后上传；该包是未签名社区预览版，必须由 macOS 用户自行验证官方登录、菜单栏、自动启动、贴边和系统安全提示。
+- 下载页面：<https://github.com/YahooYuan666/3r-waterline/releases/tag/v0.1.2>。页面已实际包含 Windows 安装版、Windows 便携版与 macOS Universal DMG。
+- Windows 安装版和便携版已在 Windows 本机构建；本轮又由 GitHub Actions Windows runner 重新构建并上传。
+- macOS Universal DMG 由 GitHub Actions 的 macOS-14 runner 生成并上传；该包是未签名、未公证的社区预览版，必须由 macOS 用户自行验证官方登录、菜单栏、自动启动、贴边和系统安全提示。

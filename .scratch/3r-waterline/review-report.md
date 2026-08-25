@@ -107,3 +107,9 @@ RestoredBySecondLaunch : True
 ### 仍未覆盖
 
 - 新 release 的 Windows 脚本级贴边/托盘回归尚未重跑：安装版单实例正在运行，脚本无法接管新 release。该项应在用户关闭 `D:\Program\three_r_waterline.exe` 后再执行；不能用旧进程的结果替代。
+
+## 2026-08-25 发布复核
+
+- 独立读取 GitHub Releases API，确认 `v0.1.2` 为公开、非草稿、非预发布。
+- 资产清单包含且仅包含本次承诺的三种分发文件：Windows NSIS 安装版、Windows 便携 EXE、macOS Universal DMG；文件分别为 3,566,272、13,800,448、11,089,433 bytes，均带有 GitHub 下载地址。
+- 复核的云端构建均为 `success`：Windows run `32864298704`、macOS run `32864302489`。因此发布项已满足可下载资产的验收条件；未将云端 macOS 打包成功误表述为签名、公证或真实 Mac 功能验收。
