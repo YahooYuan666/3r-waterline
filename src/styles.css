@@ -506,7 +506,9 @@ button:focus-visible {
   left: 50%;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  /* Source reference: separate the weekly/monthly groups decisively while
+     keeping each ten-segment meter readable at the 14px edge-tab width. */
+  gap: 8px;
   align-items: center;
   opacity: 0.92;
   transform: translate(-50%, -50%);
@@ -515,7 +517,7 @@ button:focus-visible {
 .edge-meter-track {
   display: flex;
   flex-direction: column-reverse;
-  gap: 1px;
+  gap: 2px;
 }
 
 .edge-meter-dot {
@@ -542,13 +544,13 @@ button:focus-visible {
 .edge-hidden-top .edge-hide-meter,
 .edge-hidden-bottom .edge-hide-meter {
   flex-direction: row;
-  gap: 4px;
+  gap: 8px;
 }
 
 .edge-hidden-top .edge-meter-track,
 .edge-hidden-bottom .edge-meter-track {
   flex-direction: row;
-  gap: 1px;
+  gap: 2px;
 }
 
 .edge-hidden-top .edge-meter-dot,
