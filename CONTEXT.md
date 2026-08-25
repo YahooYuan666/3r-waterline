@@ -44,6 +44,10 @@ _Avoid_: Default browser login, credential harvesting
 One subscription card belonging to the active 3R Account. A 3R Account may have multiple Subscriptions, each with its own quota values and reset times.
 _Avoid_: Subaccount, plan data
 
+**Direct Balance**:
+The single current CNY available-balance amount issued for the active 3R Account, presented in the application as `Grok 直充余额`. It is an optional selectable display item, not a quota period: it has no limit, water-level percentage, reset time, or inferred expiry.
+_Avoid_: Monthly quota, subscription limit, cached account balance
+
 **Supported Subscription**:
 A Subscription whose card has at least one valid usage/limit period. Reset text is optional because top-up cards may expose only remaining days or an expiry date. It is eligible for a Quota Snapshot and the water-level display.
 _Avoid_: Parsed card, available plan

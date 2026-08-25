@@ -394,4 +394,37 @@ describe("subscription page parser", () => {
       }
     ]);
   });
+
+  it("adds a selectable Grok direct-balance display item only for a valid CNY balance", () => {
+    const result = parseSubscriptionPageCapture({
+      availableBalance: "¥297.46",
+      cards: [
+        {
+          name: "GPT 4x",
+          status: "active",
+          monthly: { amounts: "$1.00 / $100.00" }
+        }
+      ]
+    });
+
+    expect(result.subscriptions).toContainEqual({
+      id: "grok-direct-balance",
+      name: "Grok 直充余额",
+      status: "supported",
+      kind: "direct-balance",
+      availableBalance: { amount: 297.46, currency: "CNY" }
+    });
+
+    const withoutBalance = parseSubscriptionPageCapture({
+      availableBalance: "¥-1.00",
+      cards: [
+        {
+          name: "GPT 4x",
+          status: "active",
+          monthly: { amounts: "$1.00 / $100.00" }
+        }
+      ]
+    });
+    expect(withoutBalance.subscriptions).toHaveLength(1);
+  });
 });

@@ -21,6 +21,16 @@ import { isPointerNearEdge, resolveEdgeHidePlacement, type EdgeHidePlacement } f
 import { clampWindowPosition, fitWindowSize, resolveTrafficOverlayHeight } from "./domain/window-geometry";
 
 function formatMoney(money: Money, fractionDigits = 2) {
+  if (money.currency === "CNY") {
+    const amount = new Intl.NumberFormat("en-US", {
+      useGrouping: false,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits
+    }).format(money.amount);
+
+    return `¥${amount}`;
+  }
+
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: money.currency,
@@ -174,7 +184,12 @@ export function WaterlineOverlay({
   const selectedSubscription =
     supportedSubscriptions.find((subscription) => subscription.id === state.selectedSubscriptionId) ??
     supportedSubscriptions[0];
-  const quotaSnapshot = selectedSubscription?.quotaSnapshot;
+  const quotaSnapshot = selectedSubscription != null && "quotaSnapshot" in selectedSubscription
+    ? selectedSubscription.quotaSnapshot
+    : undefined;
+  const availableBalance = selectedSubscription != null && "availableBalance" in selectedSubscription
+    ? selectedSubscription.availableBalance
+    : undefined;
   const stateNotice =
     state.kind === "verified" && state.freshness === "update-failed"
       ? statusText(state)
@@ -229,9 +244,11 @@ export function WaterlineOverlay({
               onNavigate={onNavigate}
             />
             <div
-              className={`${displayMode === "traffic" ? "quota-vessel traffic-monitor" : "quota-vessel"}${quotaSnapshot == null ? " empty-quota-state" : ""} ui-scale-${uiScale}`}
+              className={`${displayMode === "traffic" ? "quota-vessel traffic-monitor" : "quota-vessel"}${quotaSnapshot == null && availableBalance == null ? " empty-quota-state" : ""}${availableBalance != null ? " direct-balance-surface" : ""} ui-scale-${uiScale}`}
               aria-label={
-                quotaSnapshot
+                availableBalance != null
+                  ? "Grok 直充余额"
+                  : quotaSnapshot
                   ? displayMode === "traffic"
                     ? "周额度和月额度的剩余额度"
                     : "周额度和月额度的剩余水位"
@@ -239,7 +256,13 @@ export function WaterlineOverlay({
               }
               onMouseDown={onDragStart}
             >
-            {quotaSnapshot ? (
+            {availableBalance != null ? (
+              displayMode === "traffic" ? (
+                <DirectBalanceRail balance={availableBalance} compact={uiScale !== "large"} />
+              ) : (
+                <DirectBalanceVessel balance={availableBalance} compact={uiScale !== "large"} />
+              )
+            ) : quotaSnapshot ? (
               displayMode === "traffic" ? (
                 <div className="traffic-bars">
                   {quotaSnapshot.weekly && (
@@ -369,6 +392,26 @@ function TrafficBar({
         </span>
         {period.resetCountdown && <em>{formatResetLabel(period.resetCountdown, compact)}</em>}
       </div>
+    </div>
+  );
+}
+
+function DirectBalanceRail({ balance, compact }: { balance: Money; compact: boolean }) {
+  return (
+    <div className="direct-balance-rail">
+      <span>可用余额</span>
+      <strong>{formatMoney(balance)}</strong>
+      {!compact && <em>Grok 直充</em>}
+    </div>
+  );
+}
+
+function DirectBalanceVessel({ balance, compact }: { balance: Money; compact: boolean }) {
+  return (
+    <div className={`direct-balance-vessel-copy${compact ? " compact" : ""}`}>
+      <span>可用余额</span>
+      <strong>{formatMoney(balance)}</strong>
+      <em>Grok 直充</em>
     </div>
   );
 }
@@ -893,7 +936,9 @@ export default function App() {
     const emptyStateHeight = uiScale === "large" ? 164 : uiScale === "medium" ? 136 : 116;
     const hasVisibleQuota = state.kind === "verified" && state.subscriptions.some(
       (subscription) => subscription.status === "supported" &&
-        (subscription.quotaSnapshot.weekly != null || subscription.quotaSnapshot.monthly != null)
+        ("availableBalance" in subscription ||
+          ("quotaSnapshot" in subscription &&
+            (subscription.quotaSnapshot.weekly != null || subscription.quotaSnapshot.monthly != null)))
     );
     const resizeToIntrinsicContent = async () => {
       if (disposed || resizeInFlight) {

@@ -21,10 +21,18 @@ interface SubscriptionBase {
   name: string;
 }
 
-export interface SupportedSubscription extends SubscriptionBase {
+export interface QuotaSubscription extends SubscriptionBase {
   status: "supported";
   quotaSnapshot: QuotaSnapshot;
 }
+
+export interface DirectBalanceSubscription extends SubscriptionBase {
+  status: "supported";
+  kind: "direct-balance";
+  availableBalance: Money;
+}
+
+export type SupportedSubscription = QuotaSubscription | DirectBalanceSubscription;
 
 export interface UnsupportedSubscription extends SubscriptionBase {
   status: "unsupported";
@@ -35,7 +43,8 @@ export interface InactiveSubscription extends SubscriptionBase {
 }
 
 export type Subscription =
-  | SupportedSubscription
+  | QuotaSubscription
+  | DirectBalanceSubscription
   | UnsupportedSubscription
   | InactiveSubscription;
 

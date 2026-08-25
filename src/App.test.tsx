@@ -28,6 +28,14 @@ function renderOverlay(state: QuotaMonitorState) {
 }
 
 describe("WaterlineOverlay", () => {
+  const directBalanceSubscription: Subscription = {
+    id: "grok-direct-balance",
+    name: "Grok 直充余额",
+    status: "supported",
+    kind: "direct-balance",
+    availableBalance: { amount: 298.69, currency: "CNY" }
+  };
+
   it("renders Remaining Amounts from the published Verified Snapshot", () => {
     renderOverlay({
       kind: "verified",
@@ -75,6 +83,30 @@ describe("WaterlineOverlay", () => {
     expect(monitor.textContent).toContain("$326.54 /$400");
     expect(monitor.textContent).toContain("$800.57 /$1600");
     expect(monitor.textContent).toContain("4d 1h 后重置");
+  });
+
+  it("renders Grok direct balance as a non-quota rail without reset or denominator", () => {
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "verified",
+          selectedSubscriptionId: "grok-direct-balance",
+          subscriptions: [supportedSubscription, directBalanceSubscription],
+          lastAttemptAt: new Date("2026-08-25T01:00:00.000Z"),
+          lastVerifiedAt: new Date("2026-08-25T01:00:00.000Z"),
+          freshness: "current",
+          updateFailure: undefined
+        }}
+        onNavigate={vi.fn()}
+        displayMode="traffic"
+      />
+    );
+
+    const balance = screen.getByLabelText("Grok 直充余额");
+    expect(balance.textContent).toContain("可用余额");
+    expect(balance.textContent).toContain("¥298.69");
+    expect(balance.textContent).not.toContain("后重置");
+    expect(balance.textContent).not.toContain("/");
   });
 
   it("uses a two-row compact copy layout for the small Traffic Monitor", () => {

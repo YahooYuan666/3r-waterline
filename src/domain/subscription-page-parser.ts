@@ -11,7 +11,7 @@ const currencySymbols: Record<string, string> = {
   $: "USD",
   "€": "EUR",
   "£": "GBP",
-  "¥": "JPY",
+  "¥": "CNY",
   "￥": "CNY"
 };
 
@@ -35,6 +35,7 @@ export interface SubscriptionPageCapture {
     weekly?: SubscriptionPeriodCapture;
     monthly?: SubscriptionPeriodCapture;
   }>;
+  availableBalance?: string;
 }
 
 function textOf(element: Element | null | undefined) {
@@ -321,9 +322,20 @@ export function parseSubscriptionsPageHtml(html: string): SubscriptionReadResult
       throw new SchemaMismatchError();
     }
 
-    return {
-      subscriptions: cards.map(normalizeCard)
-    };
+    const availableBalance = parseMoney(page.getAttribute("data-3r-available-balance") ?? undefined);
+    const subscriptions = cards.map(normalizeCard);
+
+    if (availableBalance != null) {
+      subscriptions.push({
+        id: "grok-direct-balance",
+        name: "Grok 直充余额",
+        status: "supported",
+        kind: "direct-balance",
+        availableBalance
+      });
+    }
+
+    return { subscriptions };
   }
 
   const grid = Array.from(document.querySelectorAll("div")).find(
@@ -363,7 +375,8 @@ export function parseSubscriptionPageCapture(capture: unknown): SubscriptionRead
     throw new SchemaMismatchError();
   }
 
-  const cards = capture.cards.map((rawCard, position) => {
+  const nativeCapture = capture as SubscriptionPageCapture;
+  const cards = nativeCapture.cards.map((rawCard, position) => {
     const card = rawCard as Partial<SubscriptionPageCapture["cards"][number]>;
     const name = typeof card.name === "string" ? card.name : `未知订阅 ${position + 1}`;
     const id = typeof card.id === "string" && card.id.trim() !== ""
@@ -395,11 +408,15 @@ export function parseSubscriptionPageCapture(capture: unknown): SubscriptionRead
     `;
   });
 
-  return parseSubscriptionsPageHtml(`
-    <main data-3r-subscriptions="v1">
+  const availableBalance = parseMoney(
+    typeof nativeCapture.availableBalance === "string" ? nativeCapture.availableBalance : undefined
+  );
+  const result = parseSubscriptionsPageHtml(`
+    <main data-3r-subscriptions="v1"${availableBalance == null ? "" : ` data-3r-available-balance="${escapeHtml(nativeCapture.availableBalance ?? "")}"`}>
       ${cards.join("\n")}
     </main>
   `);
+  return result;
 }
 
 export function createHtmlSubscriptionsPageReader(
