@@ -120,4 +120,4 @@ RestoredBySecondLaunch : True
 - 独立检查确认令牌刷新只在 401/403 时清除 Login State；网络失败、无效响应和 5xx 不会清除会话。
 - 前端回归覆盖：初次连接失败的中性文案与“重新连接”按钮；已验证额度保留、刷新失败文案与按钮；原生错误分类。
 - Rust 回归覆盖：401/403 为认证状态，502/503 不为认证状态。
-- 本轮验证结果：前端 52 tests、Rust 6 tests、生产构建、Cargo check/fmt、Windows release 打包均通过。
+- 本轮验证结果：前端 53 tests、Rust 6 tests、生产构建、Cargo check/fmt、Windows release 打包均通过。

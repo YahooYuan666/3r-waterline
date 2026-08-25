@@ -172,7 +172,7 @@ RestoredBySecondLaunch : True
 
 ### 验证
 
-- `npm test -- --run`：52 项通过。
+- `npm test -- --run`：53 项通过。
 - `npm run build`：通过。
 - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`：通过。
 - `cargo test --manifest-path src-tauri/Cargo.toml`：6 项通过。
