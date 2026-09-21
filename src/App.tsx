@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from "react";
 import { ChevronLeft, ChevronRight, LogIn, MoreHorizontal, Settings } from "lucide-react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -60,7 +60,6 @@ const EDGE_HIDE_KEY = "3r-waterline-edge-hide";
 const AUTO_CYCLE_KEY = "3r-waterline-auto-cycle-ms";
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const AUTO_CYCLE_OPTIONS = [0, 30_000, 60_000, 300_000, 600_000] as const;
-const EDGE_METER_SEGMENTS = 10;
 
 function readDisplayMode(): DisplayMode {
   if (typeof window === "undefined") {
@@ -197,9 +196,6 @@ export function WaterlineOverlay({
   const quotaSnapshot = selectedSubscription != null && "quotaSnapshot" in selectedSubscription
     ? selectedSubscription.quotaSnapshot
     : undefined;
-  const availableBalance = selectedSubscription != null && "availableBalance" in selectedSubscription
-    ? selectedSubscription.availableBalance
-    : undefined;
   const stateNotice =
     state.kind === "verified" && state.freshness === "update-failed"
       ? statusText(state)
@@ -265,11 +261,9 @@ export function WaterlineOverlay({
               onNavigate={onNavigate}
             />
             <div
-              className={`${displayMode === "traffic" ? "quota-vessel traffic-monitor" : "quota-vessel"}${quotaSnapshot == null && availableBalance == null ? " empty-quota-state" : ""}${availableBalance != null ? " direct-balance-surface" : ""} ui-scale-${uiScale}`}
+              className={`${displayMode === "traffic" ? "quota-vessel traffic-monitor" : "quota-vessel"}${quotaSnapshot == null ? " empty-quota-state" : ""} ui-scale-${uiScale}`}
               aria-label={
-                availableBalance != null
-                  ? "Grok 直充余额"
-                  : quotaSnapshot
+                quotaSnapshot
                   ? displayMode === "traffic"
                     ? "周额度和月额度的剩余额度"
                     : "周额度和月额度的剩余水位"
@@ -277,13 +271,7 @@ export function WaterlineOverlay({
               }
               onMouseDown={onDragStart}
             >
-            {availableBalance != null ? (
-              displayMode === "traffic" ? (
-                <DirectBalanceRail balance={availableBalance} compact={uiScale !== "large"} />
-              ) : (
-                <DirectBalanceVessel balance={availableBalance} compact={uiScale !== "large"} />
-              )
-            ) : quotaSnapshot ? (
+            {quotaSnapshot ? (
               displayMode === "traffic" ? (
                 <div className="traffic-bars">
                   {quotaSnapshot.weekly && (
@@ -446,26 +434,6 @@ function TrafficBar({
   );
 }
 
-function DirectBalanceRail({ balance, compact }: { balance: Money; compact: boolean }) {
-  return (
-    <div className="direct-balance-rail">
-      <span>可用余额</span>
-      <strong>{formatMoney(balance)}</strong>
-      {!compact && <em>Grok 直充</em>}
-    </div>
-  );
-}
-
-function DirectBalanceVessel({ balance, compact }: { balance: Money; compact: boolean }) {
-  return (
-    <div className={`direct-balance-vessel-copy${compact ? " compact" : ""}`}>
-      <span>可用余额</span>
-      <strong>{formatMoney(balance)}</strong>
-      <em>Grok 直充</em>
-    </div>
-  );
-}
-
 function SubscriptionHeader({
   name,
   showNavigation,
@@ -539,19 +507,14 @@ function EdgeHideMeter({ quotaSnapshot }: { quotaSnapshot?: QuotaSnapshot }) {
 
   return (
     <span className="edge-hide-meter" aria-hidden="true">
-      {tracks.map(({ period, tone }) => {
-        const activeDots = Math.max(
-          0,
-          Math.min(EDGE_METER_SEGMENTS, Math.ceil((remainingPercentage(period) / 100) * EDGE_METER_SEGMENTS))
-        );
-        return (
-          <span className={`edge-meter-track ${tone}`} key={tone}>
-            {Array.from({ length: EDGE_METER_SEGMENTS }, (_, index) => (
-              <i className={index < activeDots ? "edge-meter-dot active" : "edge-meter-dot"} key={index} />
-            ))}
-          </span>
-        );
-      })}
+      {tracks.map(({ period, tone }) => (
+        <span className={`edge-meter-track ${tone}`} key={tone}>
+          <span
+            className="edge-meter-fill"
+            style={{ "--remaining": `${remainingPercentage(period)}%` } as CSSProperties}
+          />
+        </span>
+      ))}
     </span>
   );
 }
@@ -994,10 +957,10 @@ export default function App() {
     const width = uiScale === "large" ? 240 : uiScale === "medium" ? 200 : 164;
     const emptyStateHeight = uiScale === "large" ? 164 : uiScale === "medium" ? 136 : 116;
     const hasVisibleQuota = state.kind === "verified" && state.subscriptions.some(
-      (subscription) => subscription.status === "supported" &&
-        ("availableBalance" in subscription ||
-          ("quotaSnapshot" in subscription &&
-            (subscription.quotaSnapshot.weekly != null || subscription.quotaSnapshot.monthly != null)))
+      (subscription) =>
+        subscription.status === "supported" &&
+        "quotaSnapshot" in subscription &&
+        (subscription.quotaSnapshot.weekly != null || subscription.quotaSnapshot.monthly != null)
     );
     const resizeToIntrinsicContent = async () => {
       if (disposed || resizeInFlight) {

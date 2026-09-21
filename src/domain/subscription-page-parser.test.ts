@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createHtmlSubscriptionsPageReader,
   parseSubscriptionPageCapture,
-  parseSubscriptionsPageHtml
+  parseSubscriptionsPageHtml,
+  type SubscriptionPageCapture
 } from "./subscription-page-parser";
 import { SchemaMismatchError } from "./quota-monitor";
 
@@ -395,7 +396,7 @@ describe("subscription page parser", () => {
     ]);
   });
 
-  it("adds a selectable Grok direct-balance display item only for a valid USD balance", () => {
+  it("does not synthesize a Grok direct-balance item from leftover capture fields", () => {
     const result = parseSubscriptionPageCapture({
       availableBalance: "$297.46",
       cards: [
@@ -405,26 +406,9 @@ describe("subscription page parser", () => {
           monthly: { amounts: "$1.00 / $100.00" }
         }
       ]
-    });
+    } as SubscriptionPageCapture);
 
-    expect(result.subscriptions).toContainEqual({
-      id: "grok-direct-balance",
-      name: "Grok 直充余额",
-      status: "supported",
-      kind: "direct-balance",
-      availableBalance: { amount: 297.46, currency: "USD" }
-    });
-
-    const withoutBalance = parseSubscriptionPageCapture({
-      availableBalance: "$-1.00",
-      cards: [
-        {
-          name: "GPT 4x",
-          status: "active",
-          monthly: { amounts: "$1.00 / $100.00" }
-        }
-      ]
-    });
-    expect(withoutBalance.subscriptions).toHaveLength(1);
+    expect(result.subscriptions).toHaveLength(1);
+    expect(result.subscriptions.some((subscription) => subscription.id === "grok-direct-balance")).toBe(false);
   });
 });

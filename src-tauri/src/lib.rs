@@ -13,7 +13,7 @@ use tauri::{
 };
 use tauri_plugin_autostart::ManagerExt as AutoLaunchManagerExt;
 
-const API_BASE_URL: &str = "https://ai.3rcd.com/api/v1";
+const API_BASE_URL: &str = "https://grok.3rcd.com/api/v1";
 const KEYRING_SERVICE: &str = "com.threercd.waterline";
 const KEYRING_ACCOUNT: &str = "3r-session";
 
@@ -172,24 +172,6 @@ fn usd_pair(used: Option<f64>, limit: Option<f64>) -> Option<String> {
         return None;
     }
     Some(format!("${used:.2} / ${limit:.2}"))
-}
-
-fn available_balance_usd(value: &Value) -> Option<String> {
-    let account = value.get("user").unwrap_or(value);
-    let balance = numeric_field_any(
-        account,
-        &[
-            "balance",
-            "available_balance",
-            "availableBalance",
-            "credit_balance",
-        ],
-    )?;
-    if !balance.is_finite() || balance < 0.0 {
-        return None;
-    }
-
-    Some(format!("${balance:.2}"))
 }
 
 fn subscriptions_to_capture(value: Value) -> Result<String, String> {
@@ -381,45 +363,7 @@ async fn fetch_subscription_capture(token: &str) -> Result<String, String> {
             .unwrap_or("订阅读取失败")
             .to_string());
     }
-    let subscriptions = subscriptions_to_capture(response_data(body)?)?;
-    let balance = fetch_available_balance(token).await?;
-    let mut capture = serde_json::from_str::<Value>(&subscriptions)
-        .map_err(|error| format!("无法处理订阅信息: {error}"))?;
-    if let Some(balance) = balance {
-        capture["availableBalance"] = Value::String(balance);
-    }
-
-    serde_json::to_string(&capture).map_err(|error| error.to_string())
-}
-
-async fn fetch_available_balance(token: &str) -> Result<Option<String>, String> {
-    let response = match Client::new()
-        .get(format!("{API_BASE_URL}/auth/me"))
-        .bearer_auth(token)
-        .send()
-        .await
-    {
-        Ok(response) => response,
-        // Available balance is a supplementary display item. A transient
-        // failure must not discard independently valid subscription quotas.
-        Err(_) => return Ok(None),
-    };
-    let status = response.status();
-    let body = match response.json::<Value>().await {
-        Ok(body) => body,
-        Err(_) => return Ok(None),
-    };
-    if is_authentication_status(status) {
-        return Err("AUTHENTICATION_REQUIRED".to_string());
-    }
-    if !status.is_success() {
-        // The subscriptions capture remains valid when this optional display
-        // item cannot be read. Do not synthesize a balance from an error.
-        return Ok(None);
-    }
-
-    let data = response_data(body).ok();
-    Ok(data.as_ref().and_then(available_balance_usd))
+    subscriptions_to_capture(response_data(body)?)
 }
 
 #[tauri::command]
@@ -825,23 +769,6 @@ mod tests {
 
         let value: Value = serde_json::from_str(&capture).expect("capture should be JSON");
         assert_eq!(value["cards"][0]["status"], "inactive");
-    }
-
-    #[test]
-    fn extracts_only_a_valid_non_negative_available_balance() {
-        assert_eq!(
-            available_balance_usd(&json!({ "balance": 297.46 })),
-            Some("$297.46".to_string())
-        );
-        assert_eq!(
-            available_balance_usd(&json!({ "user": { "available_balance": "12.5" } })),
-            Some("$12.50".to_string())
-        );
-        assert_eq!(available_balance_usd(&json!({ "balance": -1 })), None);
-        assert_eq!(
-            available_balance_usd(&json!({ "id": 1, "email": "ignored@example.test" })),
-            None
-        );
     }
 
     #[test]

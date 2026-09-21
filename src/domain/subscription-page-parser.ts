@@ -35,7 +35,6 @@ export interface SubscriptionPageCapture {
     weekly?: SubscriptionPeriodCapture;
     monthly?: SubscriptionPeriodCapture;
   }>;
-  availableBalance?: string;
 }
 
 function textOf(element: Element | null | undefined) {
@@ -322,20 +321,7 @@ export function parseSubscriptionsPageHtml(html: string): SubscriptionReadResult
       throw new SchemaMismatchError();
     }
 
-    const availableBalance = parseMoney(page.getAttribute("data-3r-available-balance") ?? undefined);
-    const subscriptions = cards.map(normalizeCard);
-
-    if (availableBalance != null) {
-      subscriptions.push({
-        id: "grok-direct-balance",
-        name: "Grok 直充余额",
-        status: "supported",
-        kind: "direct-balance",
-        availableBalance
-      });
-    }
-
-    return { subscriptions };
+    return { subscriptions: cards.map(normalizeCard) };
   }
 
   const grid = Array.from(document.querySelectorAll("div")).find(
@@ -408,15 +394,11 @@ export function parseSubscriptionPageCapture(capture: unknown): SubscriptionRead
     `;
   });
 
-  const availableBalance = parseMoney(
-    typeof nativeCapture.availableBalance === "string" ? nativeCapture.availableBalance : undefined
-  );
-  const result = parseSubscriptionsPageHtml(`
-    <main data-3r-subscriptions="v1"${availableBalance == null ? "" : ` data-3r-available-balance="${escapeHtml(nativeCapture.availableBalance ?? "")}"`}>
+  return parseSubscriptionsPageHtml(`
+    <main data-3r-subscriptions="v1">
       ${cards.join("\n")}
     </main>
   `);
-  return result;
 }
 
 export function createHtmlSubscriptionsPageReader(
