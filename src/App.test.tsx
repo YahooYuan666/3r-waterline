@@ -529,9 +529,9 @@ describe("WaterlineOverlay", () => {
 
     expect(onRestoreEdgeHide).toHaveBeenCalledTimes(2);
     expect(tab.querySelectorAll(".edge-meter-track")).toHaveLength(2);
-    expect(tab.querySelectorAll(".edge-meter-fill")).toHaveLength(2);
-    expect((tab.querySelector(".edge-meter-track.weekly .edge-meter-fill") as HTMLElement).style.getPropertyValue("--remaining")).toBe("81.635%");
-    expect((tab.querySelector(".edge-meter-track.monthly .edge-meter-fill") as HTMLElement).style.getPropertyValue("--remaining")).toBe("50.035625%");
+    expect(tab.querySelectorAll(".edge-meter-dot")).toHaveLength(20);
+    expect(tab.querySelectorAll(".edge-meter-track.weekly .edge-meter-dot.active")).toHaveLength(9);
+    expect(tab.querySelectorAll(".edge-meter-track.monthly .edge-meter-dot.active")).toHaveLength(6);
   });
 
   it("asks the host to re-hide a docked overlay after the pointer leaves", () => {

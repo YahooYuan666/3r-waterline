@@ -479,7 +479,11 @@ button:focus-visible {
 .edge-hide-tab {
   position: absolute;
   inset: 0 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 14px;
+  min-width: 14px;
   height: 100%;
   padding: 0;
   border: 1px solid rgb(46 60 74 / 92%);
@@ -487,6 +491,7 @@ button:focus-visible {
   background: #0a1016;
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 55%);
   cursor: pointer;
+  line-height: 0;
 }
 
 .edge-hidden-left .edge-hide-tab {
@@ -495,6 +500,7 @@ button:focus-visible {
   top: 0;
   bottom: 0;
   width: 14px;
+  min-width: 14px;
   height: 100%;
 }
 
@@ -504,6 +510,7 @@ button:focus-visible {
   top: 0;
   bottom: 0;
   width: 14px;
+  min-width: 14px;
   height: 100%;
 }
 
@@ -513,7 +520,9 @@ button:focus-visible {
   bottom: 0;
   left: 0;
   width: 100%;
+  min-width: 0;
   height: 14px;
+  min-height: 14px;
 }
 
 .edge-hidden-bottom .edge-hide-tab {
@@ -522,83 +531,79 @@ button:focus-visible {
   bottom: auto;
   left: 0;
   width: 100%;
+  min-width: 0;
   height: 14px;
+  min-height: 14px;
 }
 
 .edge-hide-meter {
-  position: absolute;
-  inset: 6px 2px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
-  opacity: 0.96;
+  width: 10px;
 }
 
 .edge-meter-track {
-  position: relative;
-  flex: 1 1 0;
-  min-height: 0;
-  width: 100%;
-  overflow: hidden;
-  background-image: repeating-linear-gradient(
-    to top,
-    rgb(126 148 168 / 32%) 0 1px,
-    transparent 1px 2px
-  );
+  display: grid;
+  grid-template-rows: repeat(10, 2px);
+  row-gap: 2px;
+  width: 10px;
+  height: 38px;
+  flex: none;
 }
 
-.edge-meter-fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: var(--remaining, 0%);
-  background-image: repeating-linear-gradient(
-    to top,
-    currentColor 0 1px,
-    transparent 1px 2px
-  );
+.edge-meter-dot {
+  display: block;
+  width: 10px;
+  height: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  font-style: normal;
+  line-height: 0;
+  background: rgb(90 110 128 / 42%);
 }
 
-.edge-meter-track.weekly .edge-meter-fill {
-  color: #3ee08a;
+.edge-meter-track.weekly .edge-meter-dot {
+  background: rgb(62 224 138 / 24%);
 }
 
-.edge-meter-track.monthly .edge-meter-fill {
-  color: #5aa8ff;
+.edge-meter-track.weekly .edge-meter-dot.active {
+  background: #3ee08a;
+}
+
+.edge-meter-track.monthly .edge-meter-dot {
+  background: rgb(90 168 255 / 24%);
+}
+
+.edge-meter-track.monthly .edge-meter-dot.active {
+  background: #5aa8ff;
 }
 
 .edge-hidden-top .edge-hide-meter,
 .edge-hidden-bottom .edge-hide-meter {
-  inset: 2px 6px;
   flex-direction: row;
-  gap: 8px;
+  width: auto;
+  height: 10px;
 }
 
 .edge-hidden-top .edge-meter-track,
 .edge-hidden-bottom .edge-meter-track {
-  min-width: 0;
-  height: 100%;
-  background-image: repeating-linear-gradient(
-    to right,
-    rgb(126 148 168 / 32%) 0 1px,
-    transparent 1px 2px
-  );
+  grid-template-rows: none;
+  grid-template-columns: repeat(10, 2px);
+  row-gap: 0;
+  column-gap: 2px;
+  width: 38px;
+  height: 10px;
 }
 
-.edge-hidden-top .edge-meter-fill,
-.edge-hidden-bottom .edge-meter-fill {
-  top: 0;
-  right: auto;
-  bottom: 0;
-  width: var(--remaining, 0%);
-  height: 100%;
-  background-image: repeating-linear-gradient(
-    to right,
-    currentColor 0 1px,
-    transparent 1px 2px
-  );
+.edge-hidden-top .edge-meter-dot,
+.edge-hidden-bottom .edge-meter-dot {
+  width: 2px;
+  height: 10px;
 }
 
 .edge-hide-tab:hover,

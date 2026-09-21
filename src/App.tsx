@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
 import { ChevronLeft, ChevronRight, LogIn, MoreHorizontal, Settings } from "lucide-react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -60,6 +60,7 @@ const EDGE_HIDE_KEY = "3r-waterline-edge-hide";
 const AUTO_CYCLE_KEY = "3r-waterline-auto-cycle-ms";
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const AUTO_CYCLE_OPTIONS = [0, 30_000, 60_000, 300_000, 600_000] as const;
+const EDGE_METER_SEGMENTS = 10;
 
 function readDisplayMode(): DisplayMode {
   if (typeof window === "undefined") {
@@ -507,14 +508,20 @@ function EdgeHideMeter({ quotaSnapshot }: { quotaSnapshot?: QuotaSnapshot }) {
 
   return (
     <span className="edge-hide-meter" aria-hidden="true">
-      {tracks.map(({ period, tone }) => (
-        <span className={`edge-meter-track ${tone}`} key={tone}>
-          <span
-            className="edge-meter-fill"
-            style={{ "--remaining": `${remainingPercentage(period)}%` } as CSSProperties}
-          />
-        </span>
-      ))}
+      {tracks.map(({ period, tone }) => {
+        const activeDots = Math.max(
+          0,
+          Math.min(EDGE_METER_SEGMENTS, Math.ceil((remainingPercentage(period) / 100) * EDGE_METER_SEGMENTS))
+        );
+
+        return (
+          <span className={`edge-meter-track ${tone}`} key={tone}>
+            {Array.from({ length: EDGE_METER_SEGMENTS }, (_, index) => (
+              <i className={index < activeDots ? "edge-meter-dot active" : "edge-meter-dot"} key={index} />
+            ))}
+          </span>
+        );
+      })}
     </span>
   );
 }
