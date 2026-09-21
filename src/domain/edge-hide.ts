@@ -29,6 +29,39 @@ const EDGE_TAB_PX = 14;
 // hover/polling race from flashing the tab when the pointer is at x/y=0.
 const EDGE_RESTORE_INSET_PX = 0;
 export const EDGE_POINTER_BUFFER_PX = 24;
+export const EDGE_TICK_CSS_PX = 2;
+export const EDGE_GROUP_GAP_CSS_PX = 8;
+export const EDGE_TICK_SPAN_CSS_PX = 10;
+export const EDGE_METER_SEGMENTS = 10;
+
+export function snapDevicePixels(cssPx: number, devicePixelRatio: number) {
+  const dpr = devicePixelRatio > 0 ? devicePixelRatio : 1;
+  return Math.max(1, Math.round(cssPx * dpr));
+}
+
+export function cssPxFromDevicePixels(devicePx: number, devicePixelRatio: number) {
+  const dpr = devicePixelRatio > 0 ? devicePixelRatio : 1;
+  return devicePx / dpr;
+}
+
+export function edgeMeterDeviceLayout(devicePixelRatio: number, trackCount: number, horizontal: boolean) {
+  const tick = snapDevicePixels(EDGE_TICK_CSS_PX, devicePixelRatio);
+  const gap = tick;
+  const groupGap = snapDevicePixels(EDGE_GROUP_GAP_CSS_PX, devicePixelRatio);
+  const span = snapDevicePixels(EDGE_TICK_SPAN_CSS_PX, devicePixelRatio);
+  const track = EDGE_METER_SEGMENTS * tick + (EDGE_METER_SEGMENTS - 1) * gap;
+  const cluster = trackCount <= 0 ? 0 : trackCount * track + Math.max(0, trackCount - 1) * groupGap;
+
+  return {
+    tick,
+    gap,
+    groupGap,
+    span,
+    track,
+    width: horizontal ? cluster : span,
+    height: horizontal ? span : cluster
+  };
+}
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));

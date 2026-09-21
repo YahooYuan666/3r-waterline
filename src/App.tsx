@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
+
 import { ChevronLeft, ChevronRight, LogIn, MoreHorizontal, Settings } from "lucide-react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -17,7 +18,13 @@ import {
   type SubscriptionPageCapture
 } from "./domain/subscription-page-parser";
 import { previewSubscriptionsPageHtml } from "./domain/subscription-page-preview";
-import { isPointerNearEdge, resolveEdgeHidePlacement, type EdgeHidePlacement } from "./domain/edge-hide";
+import {
+  cssPxFromDevicePixels,
+  edgeMeterDeviceLayout,
+  isPointerNearEdge,
+  resolveEdgeHidePlacement,
+  type EdgeHidePlacement
+} from "./domain/edge-hide";
 import { clampWindowPosition, fitWindowSize, resolveTrafficOverlayHeight } from "./domain/window-geometry";
 
 function formatMoney(money: Money, fractionDigits = 2) {
@@ -61,6 +68,32 @@ const AUTO_CYCLE_KEY = "3r-waterline-auto-cycle-ms";
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const AUTO_CYCLE_OPTIONS = [0, 30_000, 60_000, 300_000, 600_000] as const;
 const EDGE_METER_SEGMENTS = 10;
+const EDGE_TICK_COLORS = {
+  weekly: { dim: "rgba(62, 224, 138, 0.24)", lit: "#3ee08a" },
+  monthly: { dim: "rgba(90, 168, 255, 0.24)", lit: "#5aa8ff" }
+} as const;
+
+function useDevicePixelRatio() {
+  const [dpr, setDpr] = useState(() => (typeof window === "undefined" ? 1 : window.devicePixelRatio || 1));
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const update = () => setDpr(window.devicePixelRatio || 1);
+    window.addEventListener("resize", update);
+    const media = typeof window.matchMedia === "function" ? window.matchMedia(`(resolution: ${dpr}dppx)`) : undefined;
+    media?.addEventListener("change", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      media?.removeEventListener("change", update);
+    };
+  }, [dpr]);
+
+  return dpr;
+}
 
 function readDisplayMode(): DisplayMode {
   if (typeof window === "undefined") {
@@ -252,7 +285,7 @@ export function WaterlineOverlay({
             onMouseEnter={onRestoreEdgeHide}
             onClick={onRestoreEdgeHide}
           >
-            <EdgeHideMeter quotaSnapshot={quotaSnapshot} />
+            <EdgeHideMeter quotaSnapshot={quotaSnapshot} edge={edgeHideEdge} />
           </button>
         ) : (
           <>
@@ -500,28 +533,113 @@ function QuotaPeriod({
   );
 }
 
-function EdgeHideMeter({ quotaSnapshot }: { quotaSnapshot?: QuotaSnapshot }) {
-  const tracks = [
-    { period: quotaSnapshot?.weekly, tone: "weekly" },
-    { period: quotaSnapshot?.monthly, tone: "monthly" }
-  ].filter((track): track is { period: PeriodQuota; tone: "weekly" | "monthly" } => track.period != null);
+function remainingDotCount(period: PeriodQuota) {
+  if (period.limit.amount <= 0) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.min(EDGE_METER_SEGMENTS, Math.ceil((remainingPercentage(period) / 100) * EDGE_METER_SEGMENTS))
+  );
+}
+
+function EdgeHideMeter({
+  quotaSnapshot,
+  edge
+}: {
+  quotaSnapshot?: QuotaSnapshot;
+  edge: EdgeHideEdge;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const dpr = useDevicePixelRatio();
+  const horizontal = edge === "top" || edge === "bottom";
+  const weeklyRemaining = quotaSnapshot?.weekly == null ? null : remainingDotCount(quotaSnapshot.weekly);
+  const monthlyRemaining = quotaSnapshot?.monthly == null ? null : remainingDotCount(quotaSnapshot.monthly);
+  const tracks = useMemo(() => {
+    const next: { tone: "weekly" | "monthly"; remainingDots: number }[] = [];
+    if (weeklyRemaining != null) {
+      next.push({ tone: "weekly", remainingDots: weeklyRemaining });
+    }
+    if (monthlyRemaining != null) {
+      next.push({ tone: "monthly", remainingDots: monthlyRemaining });
+    }
+    return next;
+  }, [monthlyRemaining, weeklyRemaining]);
+  const layout = useMemo(
+    () => edgeMeterDeviceLayout(dpr, tracks.length, horizontal),
+    [dpr, horizontal, tracks.length]
+  );
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (canvas == null || ctx == null || layout.width === 0 || layout.height === 0) {
+      return;
+    }
+
+    canvas.width = layout.width;
+    canvas.height = layout.height;
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, layout.width, layout.height);
+
+    tracks.forEach((track, trackIndex) => {
+      const origin = trackIndex * (layout.track + layout.groupGap);
+      const colors = EDGE_TICK_COLORS[track.tone];
+
+      for (let index = 0; index < EDGE_METER_SEGMENTS; index += 1) {
+        const isRemaining = horizontal
+          ? index < track.remainingDots
+          : index >= EDGE_METER_SEGMENTS - track.remainingDots;
+        ctx.fillStyle = isRemaining ? colors.lit : colors.dim;
+        const offset = index * (layout.tick + layout.gap);
+
+        if (horizontal) {
+          ctx.fillRect(origin + offset, 0, layout.tick, layout.span);
+        } else {
+          ctx.fillRect(0, origin + offset, layout.span, layout.tick);
+        }
+      }
+    });
+
+    const snapToDevicePixels = () => {
+      canvas.style.transform = "none";
+      const rect = canvas.getBoundingClientRect();
+      const dx = Math.round(rect.left * dpr) / dpr - rect.left;
+      const dy = Math.round(rect.top * dpr) / dpr - rect.top;
+      canvas.style.transform = dx === 0 && dy === 0 ? "none" : `translate(${dx}px, ${dy}px)`;
+    };
+
+    snapToDevicePixels();
+    const frame = window.requestAnimationFrame(snapToDevicePixels);
+    return () => window.cancelAnimationFrame(frame);
+  }, [dpr, horizontal, layout, tracks]);
 
   return (
     <span className="edge-hide-meter" aria-hidden="true">
-      {tracks.map(({ period, tone }) => {
-        const activeDots = Math.max(
-          0,
-          Math.min(EDGE_METER_SEGMENTS, Math.ceil((remainingPercentage(period) / 100) * EDGE_METER_SEGMENTS))
-        );
+      {layout.width > 0 && layout.height > 0 ? (
+        <canvas
+          ref={canvasRef}
+          className="edge-meter-canvas"
+          width={layout.width}
+          height={layout.height}
+          style={{
+            width: `${cssPxFromDevicePixels(layout.width, dpr)}px`,
+            height: `${cssPxFromDevicePixels(layout.height, dpr)}px`
+          }}
+        />
+      ) : null}
+      {tracks.map(({ tone, remainingDots }) => (
+        <span className={`edge-meter-track ${tone}`} key={tone}>
+          {Array.from({ length: EDGE_METER_SEGMENTS }, (_, index) => {
+            const isRemaining = horizontal
+              ? index < remainingDots
+              : index >= EDGE_METER_SEGMENTS - remainingDots;
 
-        return (
-          <span className={`edge-meter-track ${tone}`} key={tone}>
-            {Array.from({ length: EDGE_METER_SEGMENTS }, (_, index) => (
-              <i className={index < activeDots ? "edge-meter-dot active" : "edge-meter-dot"} key={index} />
-            ))}
-          </span>
-        );
-      })}
+            return <i className={isRemaining ? "edge-meter-dot active" : "edge-meter-dot"} key={index} />;
+          })}
+        </span>
+      ))}
     </span>
   );
 }

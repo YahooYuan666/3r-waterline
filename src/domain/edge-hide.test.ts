@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isPointerNearEdge, resolveEdgeHidePlacement } from "./edge-hide";
+import { cssPxFromDevicePixels, edgeMeterDeviceLayout, isPointerNearEdge, resolveEdgeHidePlacement, snapDevicePixels } from "./edge-hide";
+
 import { clampWindowPosition, fitWindowSize } from "./window-geometry";
 
 const workArea = {
@@ -84,5 +85,29 @@ describe("Edge Hide placement", () => {
         { position: { x: 0, y: 400 }, size: windowSize }
       )
     ).toBe(false);
+  });
+});
+
+describe("edge meter device snapping", () => {
+  it("keeps tick and gap on whole device pixels at fractional DPI", () => {
+    expect(snapDevicePixels(2, 1)).toBe(2);
+    expect(snapDevicePixels(2, 1.25)).toBe(3);
+    expect(snapDevicePixels(2, 1.5)).toBe(3);
+    expect(snapDevicePixels(2, 2)).toBe(4);
+
+    const layout = edgeMeterDeviceLayout(1, 2, false);
+    expect(layout.tick).toBe(2);
+    expect(layout.gap).toBe(2);
+    expect(layout.span).toBe(10);
+    expect(layout.track).toBe(38);
+    expect(layout.height).toBe(84);
+    expect(layout.width).toBe(10);
+
+    const fractional = edgeMeterDeviceLayout(1.25, 2, false);
+    expect(fractional.tick).toBe(fractional.gap);
+    expect(fractional.track).toBe(10 * fractional.tick + 9 * fractional.gap);
+    expect(fractional.height).toBe(2 * fractional.track + fractional.groupGap);
+    expect(fractional.width).toBe(fractional.span);
+    expect(cssPxFromDevicePixels(fractional.tick, 1.25)).toBe(2.4);
   });
 });

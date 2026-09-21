@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
 import { classifyNativeReadError, WaterlineOverlay } from "./App";
 import { AuthenticationRequiredError } from "./domain/quota-monitor";
 import type { QuotaMonitorState, Subscription } from "./domain/quota-monitor";
@@ -21,6 +22,15 @@ const supportedSubscription: Subscription = {
     }
   }
 };
+
+beforeAll(() => {
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+    imageSmoothingEnabled: false,
+    clearRect: vi.fn(),
+    fillRect: vi.fn(),
+    set fillStyle(_value: string) {}
+  })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+});
 
 afterEach(cleanup);
 
@@ -518,6 +528,7 @@ describe("WaterlineOverlay", () => {
         onNavigate={vi.fn()}
         onRestoreEdgeHide={onRestoreEdgeHide}
         edgeHidden
+        edgeHideEdge="right"
       />
     );
 
@@ -528,10 +539,45 @@ describe("WaterlineOverlay", () => {
     fireEvent.click(tab);
 
     expect(onRestoreEdgeHide).toHaveBeenCalledTimes(2);
+    expect(tab.querySelector("canvas.edge-meter-canvas")).not.toBeNull();
     expect(tab.querySelectorAll(".edge-meter-track")).toHaveLength(2);
     expect(tab.querySelectorAll(".edge-meter-dot")).toHaveLength(20);
-    expect(tab.querySelectorAll(".edge-meter-track.weekly .edge-meter-dot.active")).toHaveLength(9);
-    expect(tab.querySelectorAll(".edge-meter-track.monthly .edge-meter-dot.active")).toHaveLength(6);
+
+    const weeklyDots = [...tab.querySelectorAll(".edge-meter-track.weekly .edge-meter-dot")];
+    const monthlyDots = [...tab.querySelectorAll(".edge-meter-track.monthly .edge-meter-dot")];
+    expect(weeklyDots.filter((dot) => dot.classList.contains("active"))).toHaveLength(9);
+    expect(monthlyDots.filter((dot) => dot.classList.contains("active"))).toHaveLength(6);
+    expect(weeklyDots.slice(0, 1).every((dot) => !dot.classList.contains("active"))).toBe(true);
+    expect(weeklyDots.slice(1).every((dot) => dot.classList.contains("active"))).toBe(true);
+    expect(monthlyDots.slice(0, 4).every((dot) => !dot.classList.contains("active"))).toBe(true);
+    expect(monthlyDots.slice(4).every((dot) => dot.classList.contains("active"))).toBe(true);
+  });
+
+  it("keeps remaining ticks on the left when the overlay is docked to the top", () => {
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "verified",
+          selectedSubscriptionId: "gpt-4x",
+          subscriptions: [supportedSubscription],
+          lastAttemptAt: new Date("2026-08-21T01:00:00.000Z"),
+          lastVerifiedAt: new Date("2026-08-21T01:00:00.000Z"),
+          freshness: "current",
+          updateFailure: undefined
+        }}
+        onNavigate={vi.fn()}
+        edgeHidden
+        edgeHideEdge="top"
+      />
+    );
+
+    const tab = screen.getByRole("button", { name: "展开悬浮窗" });
+    const weeklyDots = [...tab.querySelectorAll(".edge-meter-track.weekly .edge-meter-dot")];
+    const monthlyDots = [...tab.querySelectorAll(".edge-meter-track.monthly .edge-meter-dot")];
+    expect(weeklyDots.slice(0, 9).every((dot) => dot.classList.contains("active"))).toBe(true);
+    expect(weeklyDots.slice(9).every((dot) => !dot.classList.contains("active"))).toBe(true);
+    expect(monthlyDots.slice(0, 6).every((dot) => dot.classList.contains("active"))).toBe(true);
+    expect(monthlyDots.slice(6).every((dot) => !dot.classList.contains("active"))).toBe(true);
   });
 
   it("asks the host to re-hide a docked overlay after the pointer leaves", () => {

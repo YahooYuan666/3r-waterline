@@ -537,73 +537,30 @@ button:focus-visible {
 }
 
 .edge-hide-meter {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 10px;
+  font-size: 0;
+  line-height: 0;
 }
 
-.edge-meter-track {
-  display: grid;
-  grid-template-rows: repeat(10, 2px);
-  row-gap: 2px;
-  width: 10px;
-  height: 38px;
-  flex: none;
-}
-
-.edge-meter-dot {
+.edge-meter-canvas {
   display: block;
-  width: 10px;
-  height: 2px;
+  flex: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.edge-meter-track,
+.edge-meter-dot {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 0;
-  font-style: normal;
-  line-height: 0;
-  background: rgb(90 110 128 / 42%);
-}
-
-.edge-meter-track.weekly .edge-meter-dot {
-  background: rgb(62 224 138 / 24%);
-}
-
-.edge-meter-track.weekly .edge-meter-dot.active {
-  background: #3ee08a;
-}
-
-.edge-meter-track.monthly .edge-meter-dot {
-  background: rgb(90 168 255 / 24%);
-}
-
-.edge-meter-track.monthly .edge-meter-dot.active {
-  background: #5aa8ff;
-}
-
-.edge-hidden-top .edge-hide-meter,
-.edge-hidden-bottom .edge-hide-meter {
-  flex-direction: row;
-  width: auto;
-  height: 10px;
-}
-
-.edge-hidden-top .edge-meter-track,
-.edge-hidden-bottom .edge-meter-track {
-  grid-template-rows: none;
-  grid-template-columns: repeat(10, 2px);
-  row-gap: 0;
-  column-gap: 2px;
-  width: 38px;
-  height: 10px;
-}
-
-.edge-hidden-top .edge-meter-dot,
-.edge-hidden-bottom .edge-meter-dot {
-  width: 2px;
-  height: 10px;
 }
 
 .edge-hide-tab:hover,
