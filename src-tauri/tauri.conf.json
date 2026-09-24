@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "3R Waterline",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "identifier": "com.threercd.waterline",
   "build": {
     "frontendDist": "../dist",
@@ -27,7 +27,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' https://grok.3rcd.com; connect-src ipc: http://ipc.localhost https://grok.3rcd.com wss://grok.3rcd.com; img-src 'self' asset: http://asset.localhost https://grok.3rcd.com data:; style-src 'self' 'unsafe-inline' https://grok.3rcd.com; script-src 'self' 'unsafe-inline' https://grok.3rcd.com"
+      "csp": "default-src 'self' https://code.3rcd.com; connect-src ipc: http://ipc.localhost https://code.3rcd.com wss://code.3rcd.com; img-src 'self' asset: http://asset.localhost https://code.3rcd.com data:; style-src 'self' 'unsafe-inline' https://code.3rcd.com; script-src 'self' 'unsafe-inline' https://code.3rcd.com"
     }
   },
   "bundle": {

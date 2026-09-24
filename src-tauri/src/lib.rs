@@ -13,7 +13,7 @@ use tauri::{
 };
 use tauri_plugin_autostart::ManagerExt as AutoLaunchManagerExt;
 
-const API_BASE_URL: &str = "https://grok.3rcd.com/api/v1";
+const API_BASE_URL: &str = "https://code.3rcd.com/api/v1";
 const KEYRING_SERVICE: &str = "com.threercd.waterline";
 const KEYRING_ACCOUNT: &str = "3r-session";
 

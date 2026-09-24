@@ -9,7 +9,7 @@
 5. 把悬浮窗拖到屏幕左、右、上或下边缘并松开，确认约 250ms 后仅保留清晰可见的 14px 把手；周/月各 10 个点（点高 2px、点距 2px 等高等距、组距 8px）居中成簇，不铺满整条窗口。亮格是余量，暗格是消耗；侧边消耗从上往下长，横板消耗从右到左。鼠标移入把手后完整悬浮窗恢复，鼠标移开后自动重新贴边；拖动悬浮窗离开边缘后才解除贴边状态。
 6. 登录成功后，打开设置确认“开机自动启动”已启用；关闭它后重启程序，确认设置保持关闭。重新启用后，确认系统登录后自动启动程序，并在启动时立即读取最新额度，之后不早于 5 分钟再次请求。
 7. 点击“清除本机登录信息”，确认当前额度立即消失、Auto-start 被关闭；重启后确认程序不能展示前一用户的额度，并要求重新登录。
-8. 如果网页取消周限额或调整月上限，等待下一次五分钟读取；确认周栏消失、月上限更新，不显示猜测值。对小加油包这类只显示“剩余 N 天（截止日期）”的订阅，确认额度仍显示，若没有可用 reset 文本则只隐藏“后重置”一行。Windows 调试程序路径：`src-tauri/target/debug/three_r_waterline.exe`。本次可交付安装包路径：`src-tauri/target/release/bundle/msi/3R Waterline_0.1.3_x64_en-US.msi`、`src-tauri/target/release/bundle/nsis/3R Waterline_0.1.3_x64-setup.exe`，便携版为 `src-tauri/target/release/three_r_waterline.exe`。
+8. 如果网页取消周限额或调整月上限，等待下一次五分钟读取；确认周栏消失、月上限更新，不显示猜测值。对小加油包这类只显示“剩余 N 天（截止日期）”的订阅，确认额度仍显示，若没有可用 reset 文本则只隐藏“后重置”一行。Windows 调试程序路径：`src-tauri/target/debug/three_r_waterline.exe`。本次可交付安装包路径：`src-tauri/target/release/bundle/msi/3R Waterline_0.1.4_x64_en-US.msi`、`src-tauri/target/release/bundle/nsis/3R Waterline_0.1.4_x64-setup.exe`，便携版为 `src-tauri/target/release/three_r_waterline.exe`。
 
 9. 模拟或等待一次网络不可达/服务暂时不可用的刷新：如果此前已有额度，确认额度仍保留，提示为“暂时无法连接 3R，保留上次额度”并出现“重新连接”；若本次启动尚未成功读取，显示“暂时无法连接 3R”并出现“重新连接”。网络异常不应自动显示“需要重新登录”或清除本机登录信息。
 
