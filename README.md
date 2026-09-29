@@ -11,6 +11,21 @@
 - `3R.Waterline_0.1.4_universal.dmg`：macOS 通用安装镜像（Apple Silicon 与 Intel）。
 - Windows 构建同时会生成 MSI；当前公开 Release 以 NSIS 安装版和便携版为主。
 
+## 下载与安全提示
+
+从浏览器直接下载的 `.exe` 会带上 Windows 的"来自网络"标记（Mark of the Web），而本项目尚未购买代码签名证书，因此 Windows 运行这些文件时会弹"打开文件 - 安全警告（无法验证发布者）"。这是未签名程序的正常提示，不代表文件被篡改；Release 资产列表提供 SHA256 摘要，可下载后自行比对。
+
+- **Windows 安装版（推荐）**：仅运行安装包时最多提示一次（如遇 SmartScreen"Windows 已保护你的电脑"，点"更多信息 → 仍要运行"）；安装完成的程序日常运行和开机自启不再弹窗。
+- **Windows 便携版**：不解除锁定的话，每次启动（含开机自启）都会弹。解除一次即可永久消除：右键 EXE → 属性 → 勾选"解除锁定"，或在 PowerShell 中执行：
+
+  ```powershell
+  Unblock-File -Path 'C:\完整路径\three_r_waterline.exe'
+  ```
+
+- **macOS DMG**：未签名公证，首次打开需在"系统设置 → 隐私与安全性"中允许。
+
+彻底消除"未知发布者"提示需要可信的代码签名，项目正在评估面向开源项目的免费/低价签名方案（如 SignPath Foundation、Certum 开源证书）。
+
 ## 功能
 
 - 圆形水瓶和 Traffic Monitor 两种悬浮显示模式。
