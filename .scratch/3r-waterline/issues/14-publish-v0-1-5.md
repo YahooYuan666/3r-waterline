@@ -16,3 +16,11 @@
 
 - GitHub Releases 存在公开 `v0.1.5`。
 - Release 包含 Windows NSIS 安装版、Windows 便携版 `three_r_waterline.exe` 及 macOS 通用 DMG。
+
+## Answer
+
+- 公开 Release：<https://github.com/YahooYuan666/3r-waterline/releases/tag/v0.1.5>
+- 对应提交：`2c70564 feat: release v0.1.5 with dynamic 3R site, Antigravity quota and proxy auto-detection`
+- 资产：`3R.Waterline_0.1.5_x64-setup.exe`、`three_r_waterline.exe`
+- macOS 工作流：<https://github.com/YahooYuan666/3r-waterline/actions/runs/37517749633>
+
