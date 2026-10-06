@@ -630,7 +630,7 @@ button:focus-visible {
   z-index: 1;
   display: grid;
   min-width: 0;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
   gap: 5px;
   padding: 0 8px;
@@ -659,7 +659,7 @@ button:focus-visible {
 }
 
 .traffic-monitor.ui-scale-medium .traffic-bar-copy {
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   gap: 3px;
   padding: 0 6px;
   font-size: 11px;
@@ -667,7 +667,7 @@ button:focus-visible {
 }
 
 .traffic-monitor.ui-scale-small .traffic-bar-copy {
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   gap: 1px;
   padding: 0 4px;
   font-size: 9px;
@@ -677,7 +677,7 @@ button:focus-visible {
 /* Compact mode keeps all three fields on one line. The class only controls
    the shortened reset wording; it must not introduce a second text row. */
 .traffic-monitor.ui-scale-medium .traffic-bar-copy.compact {
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   grid-template-rows: none;
   align-items: center;
   column-gap: 3px;
@@ -685,7 +685,7 @@ button:focus-visible {
 }
 
 .traffic-monitor.ui-scale-small .traffic-bar-copy.compact {
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   grid-template-rows: none;
   align-items: center;
   column-gap: 1px;
@@ -949,6 +949,22 @@ button:focus-visible {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.settings-secondary {
+  min-height: 34px;
+  border: 1px solid #8aa0b4;
+  border-radius: 6px;
+  color: #243746;
+  background: #f4f7f8;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-secondary:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
 .settings-danger {
   min-height: 34px;
   border: 1px solid #bd6e6e;
@@ -996,6 +1012,12 @@ button:focus-visible {
   .mode-option.active {
     border-color: #78b894;
     background: #3f7f62;
+  }
+
+  .settings-secondary {
+    border-color: #60788c;
+    color: #d5e4ef;
+    background: #243646;
   }
 
   .settings-danger {
@@ -1170,7 +1192,7 @@ button:focus-visible {
 }
 
 .traffic-bar-copy {
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   gap: 4px;
   padding: 0 7px;
   color: #ffffff;
@@ -1188,14 +1210,14 @@ button:focus-visible {
 }
 
 .traffic-monitor.ui-scale-medium .traffic-bar-copy {
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   gap: 3px;
   padding: 0 6px;
   font-size: 10px;
 }
 
 .traffic-monitor.ui-scale-small .traffic-bar-copy {
-  grid-template-columns: 15px minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   gap: 2px;
   padding: 0 5px;
   font-size: 9px;
@@ -1307,4 +1329,10 @@ button:focus-visible {
 .mode-option.active {
   border-color: #3cba86;
   background: #1e8963;
+}
+
+.settings-secondary {
+  border-color: #60788c;
+  color: #d5e4ef;
+  background: #243646;
 }

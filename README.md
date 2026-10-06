@@ -4,11 +4,11 @@
 
 ## 当前版本
 
-`v0.1.4` 提供 Windows 和 macOS 社区预览构建：
+`v0.1.5` 提供 Windows 和 macOS 社区预览构建：
 
-- `3R.Waterline_0.1.4_x64-setup.exe`：Windows 安装版（NSIS，推荐）。
+- `3R.Waterline_0.1.5_x64-setup.exe`：Windows 安装版（NSIS，推荐）。
 - `three_r_waterline.exe`：Windows 便携版，无需安装。
-- `3R.Waterline_0.1.4_universal.dmg`：macOS 通用安装镜像（Apple Silicon 与 Intel）。
+- `3R.Waterline_0.1.5_universal.dmg`：macOS 通用安装镜像（Apple Silicon 与 Intel）。
 - Windows 构建同时会生成 MSI；当前公开 Release 以 NSIS 安装版和便携版为主。
 
 ## 下载与安全提示

@@ -110,17 +110,12 @@ function normalizePeriod(card: Element, period: "weekly" | "monthly"): PeriodQuo
   const limit = parseMoney(textOf(periodElement?.querySelector("[data-quota-limit]")));
   const resetCountdown = parseResetCountdown(textOf(periodElement?.querySelector("[data-quota-reset]")));
 
-  if (
-    used == null ||
-    limit == null ||
-    used.currency !== limit.currency ||
-    limit.amount <= 0 ||
-    used.amount > limit.amount
-  ) {
+  if (used == null || limit == null || used.currency !== limit.currency || limit.amount <= 0 || used.amount < 0) {
     return undefined;
   }
 
-  const remainingAmount = Math.round((limit.amount - used.amount) * 100) / 100;
+  // Usage past the limit means the period is exhausted, not that the server removed it.
+  const remainingAmount = Math.max(0, Math.round((limit.amount - used.amount) * 100) / 100);
 
   return {
     remainingAmount: { amount: remainingAmount, currency: limit.currency },
@@ -173,7 +168,7 @@ function normalizeRenderedPeriod(block: Element): { period: "weekly" | "monthly"
     pair == null ||
     pair.used.currency !== pair.limit.currency ||
     pair.limit.amount <= 0 ||
-    pair.used.amount > pair.limit.amount
+    pair.used.amount < 0
   ) {
     return undefined;
   }
@@ -182,7 +177,7 @@ function normalizeRenderedPeriod(block: Element): { period: "weekly" | "monthly"
     period,
     quota: {
       remainingAmount: {
-        amount: Math.round((pair.limit.amount - pair.used.amount) * 100) / 100,
+        amount: Math.max(0, Math.round((pair.limit.amount - pair.used.amount) * 100) / 100),
         currency: pair.limit.currency
       },
       limit: pair.limit,

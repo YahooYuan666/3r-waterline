@@ -168,6 +168,41 @@ describe("WaterlineOverlay", () => {
     expect(screen.getByText("/$1600")).toBeTruthy();
   });
 
+  it("shows Gemini as frozen percentages in the weekly and monthly positions", () => {
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "verified",
+          selectedSubscriptionId: "gpt-4x",
+          subscriptions: [supportedSubscription],
+          lastAttemptAt: new Date("2026-08-21T01:00:00.000Z"),
+          lastVerifiedAt: new Date("2026-08-21T01:00:00.000Z"),
+          freshness: "current",
+          updateFailure: undefined
+        }}
+        onNavigate={vi.fn()}
+        viewingGemini
+        geminiNow={new Date("2026-10-04T04:40:00.000Z")}
+        pageCount={2}
+        geminiReading={{
+          queriedAt: "2026-10-04T01:40:00.000Z",
+          fiveHour: { remainingFraction: 0.489, resetTime: "2026-10-04T07:10:00.000Z" },
+          weekly: { remainingFraction: 0.908, resetTime: "2026-10-10T17:19:42.000Z" },
+          failure: "无法连接 Google"
+        }}
+      />
+    );
+
+    const vessel = screen.getByLabelText("Gemini 5 小时限额和周限额的剩余水位");
+
+    expect(screen.getByText("Gemini")).toBeTruthy();
+    expect(vessel.textContent).toContain("5小时");
+    expect(vessel.textContent).toContain("48.9%");
+    expect(vessel.textContent).toContain("90.8%");
+    expect(vessel.textContent).toContain("这次没查到");
+    expect(vessel.textContent).not.toContain("$");
+  });
+
   it("delegates a primary-button press on the quota surface to the native drag handler", () => {
     const onDragStart = vi.fn();
     render(

@@ -29,12 +29,16 @@ The right-click menu on the compact overlay that exposes basic settings without 
 _Avoid_: System Menu, manual refresh
 
 **Clear This Device**:
-The user command that removes the Login State, isolated login-session data, subscription content, Quota Snapshots, and Auto-start entry from the current operating-system user. It retains only account-independent window placement preferences.
-_Avoid_: Server logout, cache reset
+The user command that removes the Login State, the remembered 3R site, the Google login, any Antigravity Reading, isolated login-session data, subscription content, Quota Snapshots, and the Auto-start entry from the current operating-system user. It retains only account-independent window placement preferences.
+_Avoid_: Server logout, cache reset, Google Sign-Out
+
+**Google Sign-Out**:
+The user command that removes only the Google login and its Antigravity Reading. The 3R Login State, remembered site, and Auto-start entry stay.
+_Avoid_: Clear This Device, server logout
 
 **Login State**:
-The reusable authenticated state issued by 3R for the application's isolated login session. It enables a balance read without collecting or retaining the user's password.
-_Avoid_: Password, account data
+The reusable authenticated state issued by 3R for the application's isolated login session. It enables a balance read without collecting or retaining the user's password. A Google login for an Antigravity Reading is a separate state and is not a Login State.
+_Avoid_: Password, account data, Google login
 
 **Official Login Window**:
 An isolated embedded browser window restricted to the 3R official site, where a user submits credentials directly to 3R. It is not the user's default browser and never reads that browser's credentials or session data.
@@ -57,8 +61,16 @@ A Subscription that the 3R page reports as expired or invalid. It remains identi
 _Avoid_: Supported Subscription, renewal target
 
 **Selected Subscription**:
-The one Subscription currently represented by the compact desktop overlay. A user changes it with the overlay's subscription navigation.
+The one Subscription currently represented by the compact desktop overlay. A user changes it with the overlay's subscription navigation. That navigation may instead show the Antigravity Reading, which is not a Subscription.
 _Avoid_: Active account, selected account
+
+**Antigravity Quota**:
+The Gemini-only remaining allowance of one Google-authenticated Antigravity account. It has a five-hour window and a weekly window, each present only when that window was returned, and each expressed as a remaining fraction rather than money. A missing window is not filled from zero, from 100%, or from an older reading. The Claude and GPT allowance is outside this term.
+_Avoid_: 3R Subscription, weekly dollar quota, model list
+
+**Antigravity Reading**:
+The last Antigravity Quota a user fetched on purpose. It stays visible, including across launches, until the next successful fetch or until that Google login is cleared. A failed fetch does not replace it. It is not refreshed on boot, on a timer, or after sleep.
+_Avoid_: Verified Snapshot, Refresh Interval, cached current quota
 
 **Quota Snapshot**:
 The normalized weekly and monthly Used Amounts and limits, with optional reset countdowns, for one Subscription obtained from one subscription-page read.
@@ -73,7 +85,7 @@ The monetary quota still available for a period, calculated as its limit minus i
 _Avoid_: Usage amount, source amount
 
 **Verified Snapshot**:
-A Quota Snapshot successfully obtained during the current Boot Lifecycle. Only a Verified Snapshot may be presented as current quota data.
+A Quota Snapshot successfully obtained during the current Boot Lifecycle. Only a Verified Snapshot may be presented as the current 3R quota. An Antigravity Reading is not a Verified Snapshot.
 _Avoid_: Cached balance, last known data
 
 **Unverified State**:

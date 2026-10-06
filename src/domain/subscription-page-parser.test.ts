@@ -276,6 +276,45 @@ describe("subscription page parser", () => {
     ]);
   });
 
+  it("keeps a weekly period that has been used past its limit", () => {
+    const result = parseSubscriptionsPageHtml(
+      subscriptionsPage(`
+        <article data-3r-subscription-card data-subscription-id="over-weekly" data-subscription-name="GPT" data-subscription-status="active">
+          <section data-quota-period="weekly">
+            <span data-quota-used>$412.50</span>
+            <span data-quota-limit>$400.00</span>
+            <time data-quota-reset>2d 4h</time>
+          </section>
+          <section data-quota-period="monthly">
+            <span data-quota-used>$800.00</span>
+            <span data-quota-limit>$1,600.00</span>
+            <time data-quota-reset>6d 1h</time>
+          </section>
+        </article>
+      `)
+    );
+
+    expect(result.subscriptions).toEqual([
+      {
+        id: "over-weekly",
+        name: "GPT",
+        status: "supported",
+        quotaSnapshot: {
+          weekly: {
+            remainingAmount: { amount: 0, currency: "USD" },
+            limit: { amount: 400, currency: "USD" },
+            resetCountdown: "2d 4h"
+          },
+          monthly: {
+            remainingAmount: { amount: 800, currency: "USD" },
+            limit: { amount: 1600, currency: "USD" },
+            resetCountdown: "6d 1h"
+          }
+        }
+      }
+    ]);
+  });
+
   it("keeps a supported subscription when the server removes the weekly quota", () => {
     const result = parseSubscriptionsPageHtml(
       subscriptionsPage(`

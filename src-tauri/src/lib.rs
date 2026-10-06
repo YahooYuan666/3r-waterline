@@ -13,7 +13,14 @@ use tauri::{
 };
 use tauri_plugin_autostart::ManagerExt as AutoLaunchManagerExt;
 
-const API_BASE_URL: &str = "https://code.3rcd.com/api/v1";
+mod antigravity;
+
+use antigravity::{
+    api_base, clear_google_session, gemini_busy, gemini_menu_label, google_signed_in,
+    google_status, login_google as complete_google_login, normalize_site, query_gemini,
+    GoogleStatus,
+};
+
 const KEYRING_SERVICE: &str = "com.threercd.waterline";
 const KEYRING_ACCOUNT: &str = "3r-session";
 
@@ -27,17 +34,22 @@ struct AuthSession {
     access_token: String,
     refresh_token: Option<String>,
     expires_at: i64,
+    #[serde(default)]
+    site: String,
 }
 
 #[derive(Deserialize)]
 struct LoginCredentials {
     email: String,
     password: String,
+    site: String,
 }
 
 #[derive(Serialize)]
 struct LoginResult {
     auto_start_enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    site: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -168,9 +180,11 @@ fn remaining_days_countdown(value: Option<f64>) -> Option<String> {
 fn usd_pair(used: Option<f64>, limit: Option<f64>) -> Option<String> {
     let used = used?;
     let limit = limit?;
-    if !used.is_finite() || !limit.is_finite() || limit <= 0.0 || used < 0.0 || used > limit {
+    if !used.is_finite() || !limit.is_finite() || limit <= 0.0 || used < 0.0 {
         return None;
     }
+    // Usage past the limit is an exhausted period, not a missing one.
+    let used = used.min(limit);
     Some(format!("${used:.2} / ${limit:.2}"))
 }
 
@@ -297,7 +311,7 @@ async fn refresh_session(session: &AuthSession) -> Result<AuthSession, String> {
         .as_deref()
         .ok_or_else(|| "AUTHENTICATION_REQUIRED".to_string())?;
     let response = Client::new()
-        .post(format!("{API_BASE_URL}/auth/refresh"))
+        .post(format!("{}/auth/refresh", api_base(&session.site)))
         .json(&json!({ "refresh_token": refresh_token }))
         .send()
         .await
@@ -336,14 +350,15 @@ async fn refresh_session(session: &AuthSession) -> Result<AuthSession, String> {
             .map(str::to_string)
             .or_else(|| session.refresh_token.clone()),
         expires_at: Utc::now().timestamp() + expires_in,
+        site: session.site.clone(),
     })
 }
 
-async fn fetch_subscription_capture(token: &str) -> Result<String, String> {
+async fn fetch_subscription_capture(site: &str, token: &str) -> Result<String, String> {
     let response = Client::new()
         // Match the page shown to the user. The /active variant omits short
         // top-up subscriptions that only expose expires_at.
-        .get(format!("{API_BASE_URL}/subscriptions"))
+        .get(format!("{}/subscriptions", api_base(site)))
         .bearer_auth(token)
         .send()
         .await
@@ -375,9 +390,10 @@ async fn login_3r(
     if credentials.email.trim().is_empty() || credentials.password.is_empty() {
         return Err("请输入邮箱和密码".to_string());
     }
+    let site = normalize_site(&credentials.site)?;
 
     let response = Client::new()
-        .post(format!("{API_BASE_URL}/auth/login"))
+        .post(format!("{}/auth/login", api_base(&site)))
         .json(&json!({ "email": credentials.email.trim(), "password": credentials.password }))
         .send()
         .await
@@ -412,13 +428,17 @@ async fn login_3r(
                 .get("expires_in")
                 .and_then(Value::as_i64)
                 .unwrap_or(3600),
+        site: site.clone(),
     };
     save_session(&session)?;
     if let Ok(mut current) = auth.0.lock() {
         *current = Some(session);
     }
     let auto_start_enabled = app.autolaunch().enable().is_ok();
-    Ok(LoginResult { auto_start_enabled })
+    Ok(LoginResult {
+        auto_start_enabled,
+        site: Some(site),
+    })
 }
 
 #[tauri::command]
@@ -432,6 +452,14 @@ async fn request_subscription_capture(
         .and_then(|current| current.clone())
         .or_else(load_session)
         .ok_or_else(|| "AUTHENTICATION_REQUIRED".to_string())?;
+
+    if session.site.trim().is_empty() {
+        clear_session();
+        if let Ok(mut current) = auth.0.lock() {
+            *current = None;
+        }
+        return Err("AUTHENTICATION_REQUIRED".to_string());
+    }
 
     if session.expires_at <= Utc::now().timestamp() {
         session = match refresh_session(&session).await {
@@ -452,7 +480,7 @@ async fn request_subscription_capture(
         }
     }
 
-    match fetch_subscription_capture(&session.access_token).await {
+    match fetch_subscription_capture(&session.site, &session.access_token).await {
         Ok(capture) => Ok(capture),
         Err(error) if error == "AUTHENTICATION_REQUIRED" => {
             clear_session();
@@ -500,6 +528,8 @@ fn clear_saved_session(
     app: tauri::AppHandle,
 ) -> Result<ClearDeviceResult, String> {
     clear_session();
+    clear_google_session();
+    sync_gemini_menu_item(&app);
     if let Ok(mut current) = auth.0.lock() {
         *current = None;
     }
@@ -559,6 +589,48 @@ fn hide_main_overlay<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
         .map_err(|error| format!("无法隐藏悬浮窗: {error}"))
 }
 
+#[tauri::command]
+fn remembered_site(auth: State<'_, AuthenticationState>) -> Option<String> {
+    auth.0
+        .lock()
+        .ok()
+        .and_then(|current| current.clone())
+        .or_else(load_session)
+        .map(|session| session.site)
+        .filter(|site| !site.trim().is_empty())
+}
+
+#[tauri::command]
+fn google_login_status() -> GoogleStatus {
+    google_status()
+}
+
+#[tauri::command]
+async fn login_google(app: tauri::AppHandle) -> Result<LoginResult, String> {
+    let result = complete_google_login().await;
+    sync_gemini_menu_item(&app);
+    result?;
+    let auto_start_enabled = app.autolaunch().enable().is_ok();
+    Ok(LoginResult {
+        auto_start_enabled,
+        site: None,
+    })
+}
+
+#[tauri::command]
+async fn query_gemini_quota(app: tauri::AppHandle) -> Result<antigravity::GeminiQueryResult, String> {
+    let result = query_gemini().await;
+    sync_gemini_menu_item(&app);
+    result
+}
+
+#[tauri::command]
+fn sign_out_google(app: tauri::AppHandle) -> Result<(), String> {
+    clear_google_session();
+    sync_gemini_menu_item(&app);
+    Ok(())
+}
+
 fn handle_menu_action<R: Runtime>(app: &AppHandle<R>, id: &str) {
     match id {
         "show" => restore_main_overlay(app),
@@ -577,13 +649,42 @@ fn handle_menu_action<R: Runtime>(app: &AppHandle<R>, id: &str) {
             emit_to_main_overlay(app, "select-display-mode", "traffic");
         }
         "quit" | "overlay-quit" => app.exit(0),
+        "query-gemini" | "overlay-query-gemini" => {
+            if gemini_busy() {
+                return;
+            }
+            restore_main_overlay(app);
+            let action = if google_signed_in() { "query" } else { "login" };
+            emit_to_main_overlay(app, "gemini-menu-action", action);
+        }
         _ => {}
     }
 }
 
+fn sync_gemini_menu_item<R: Runtime>(app: &AppHandle<R>) {
+    let Some(slot) = app.try_state::<GeminiMenuSlot>() else {
+        return;
+    };
+    let Ok(item) = slot.0.lock() else {
+        return;
+    };
+    let _ = item.set_text(gemini_menu_label());
+    let _ = item.set_enabled(!gemini_busy());
+}
+
+struct GeminiMenuSlot(Mutex<tauri::menu::MenuItem<tauri::Wry>>);
+
 #[tauri::command]
 fn show_overlay_context_menu(window: WebviewWindow) -> Result<(), String> {
     let app = window.app_handle();
+    let gemini = MenuItem::with_id(
+        app,
+        "overlay-query-gemini",
+        gemini_menu_label(),
+        !gemini_busy(),
+        None::<&str>,
+    )
+    .map_err(|error| format!("无法创建菜单: {error}"))?;
     let settings = MenuItem::with_id(app, "overlay-settings", "设置", true, None::<&str>)
         .map_err(|error| format!("无法创建菜单: {error}"))?;
     let vessel = MenuItem::with_id(
@@ -611,7 +712,8 @@ fn show_overlay_context_menu(window: WebviewWindow) -> Result<(), String> {
     let menu = Menu::with_items(
         app,
         &[
-            &settings, &separator, &vessel, &traffic, &separator, &hide, &quit,
+            &gemini, &separator, &settings, &separator, &vessel, &traffic, &separator, &hide,
+            &quit,
         ],
     )
     .map_err(|error| format!("无法创建菜单: {error}"))?;
@@ -637,6 +739,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             login_3r,
             request_subscription_capture,
+            remembered_site,
+            google_login_status,
+            login_google,
+            query_gemini_quota,
+            sign_out_google,
             auto_start_enabled,
             set_auto_start,
             clear_saved_session,
@@ -652,6 +759,8 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "显示 3R 水位", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "隐藏悬浮窗", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
+            let gemini = MenuItem::with_id(app, "query-gemini", gemini_menu_label(), !gemini_busy(), None::<&str>)?;
+            app.manage(GeminiMenuSlot(Mutex::new(gemini.clone())));
             let vessel = MenuItem::with_id(app, "display-vessel", "圆形水瓶", true, None::<&str>)?;
             let traffic = MenuItem::with_id(
                 app,
@@ -665,7 +774,7 @@ pub fn run() {
             let menu = Menu::with_items(
                 app,
                 &[
-                    &show, &hide, &settings, &separator, &vessel, &traffic, &separator, &quit,
+                    &show, &hide, &settings, &gemini, &separator, &vessel, &traffic, &separator, &quit,
                 ],
             )?;
 
@@ -696,6 +805,32 @@ pub fn run() {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn keeps_weekly_period_when_usage_exceeds_the_limit() {
+        let capture = subscriptions_to_capture(json!([
+            {
+                "id": "over-weekly",
+                "status": "active",
+                "group": {
+                    "name": "GPT",
+                    "weekly_limit_usd": 400.0,
+                    "monthly_limit_usd": 1600.0
+                },
+                "weekly_usage_usd": 412.5,
+                "monthly_usage_usd": 800.0,
+                "weekly_window_end": "2099-01-08T00:00:00Z",
+                "monthly_window_end": "2099-02-01T00:00:00Z"
+            }
+        ]))
+        .expect("capture should normalize");
+
+        let value: Value = serde_json::from_str(&capture).expect("capture should be JSON");
+        let card = &value["cards"][0];
+        assert_eq!(card["weekly"]["amounts"], "$400.00 / $400.00");
+        assert_eq!(card["monthly"]["amounts"], "$800.00 / $1600.00");
+        assert!(card["weekly"]["reset"].as_str().is_some());
+    }
 
     #[test]
     fn omits_removed_weekly_period_and_keeps_changed_monthly_limit() {

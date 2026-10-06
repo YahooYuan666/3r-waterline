@@ -98,6 +98,7 @@ export interface QuotaMonitor {
   refreshIfDue(minimumIntervalMs: number): Promise<QuotaMonitorState>;
   reset(): QuotaMonitorState;
   selectAdjacentSupportedSubscription(offset: -1 | 1): QuotaMonitorState;
+  selectSupportedSubscription(id: string): QuotaMonitorState;
 }
 
 const systemClock: Clock = {
@@ -268,6 +269,20 @@ export function createQuotaMonitor({
       return publish({
         ...state,
         selectedSubscriptionId: supportedSubscriptions[nextIndex].id
+      });
+    },
+    selectSupportedSubscription(id) {
+      const supported = state.subscriptions.some(
+        (subscription) => subscription.id === id && subscription.status === "supported"
+      );
+
+      if (!supported || state.selectedSubscriptionId === id) {
+        return state;
+      }
+
+      return publish({
+        ...state,
+        selectedSubscriptionId: id
       });
     }
   };

@@ -4203,7 +4203,7 @@ dependencies = [
 
 [[package]]
 name = "three_r_waterline"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "chrono",
  "keyring",
@@ -4214,6 +4214,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-autostart",
  "tauri-plugin-single-instance",
+ "windows-registry",
 ]
 
 [[package]]

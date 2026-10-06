@@ -26,6 +26,17 @@ import {
   type EdgeHidePlacement
 } from "./domain/edge-hide";
 import { clampWindowPosition, fitWindowSize, resolveTrafficOverlayHeight } from "./domain/window-geometry";
+import {
+  formatRemainingPercent,
+  loadGeminiReading,
+  queryAgeLabel,
+  readingHasWindows,
+  resetCountdown,
+  saveGeminiReading,
+  SITE_KEY,
+  type AntigravityReading,
+  type GeminiWindow
+} from "./domain/antigravity";
 
 function formatMoney(money: Money, fractionDigits = 2) {
   if (money.currency === "CNY") {
@@ -199,6 +210,10 @@ interface WaterlineOverlayProps {
   autoCycleIntervalMs?: number;
   loginError?: string;
   onRetry?: () => void;
+  viewingGemini?: boolean;
+  geminiReading?: AntigravityReading | null;
+  geminiNow?: Date;
+  pageCount?: number;
 }
 
 export function WaterlineOverlay({
@@ -218,7 +233,11 @@ export function WaterlineOverlay({
   onEdgeMouseLeave,
   onEdgeMouseEnter,
   loginError,
-  onRetry
+  onRetry,
+  viewingGemini = false,
+  geminiReading = null,
+  geminiNow,
+  pageCount
 }: WaterlineOverlayProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number }>();
   const supportedSubscriptions = state.subscriptions.filter(
@@ -227,8 +246,20 @@ export function WaterlineOverlay({
   const selectedSubscription =
     supportedSubscriptions.find((subscription) => subscription.id === state.selectedSubscriptionId) ??
     supportedSubscriptions[0];
-  const quotaSnapshot = selectedSubscription != null && "quotaSnapshot" in selectedSubscription
-    ? selectedSubscription.quotaSnapshot
+  const quotaSnapshot = viewingGemini
+    ? geminiQuotaSnapshot(geminiReading, geminiNow ?? new Date())
+    : selectedSubscription != null && "quotaSnapshot" in selectedSubscription
+      ? selectedSubscription.quotaSnapshot
+      : undefined;
+  const geminiAge = viewingGemini && geminiReading?.queriedAt
+    ? queryAgeLabel(geminiReading.queriedAt, geminiNow ?? new Date())
+    : undefined;
+  const geminiNotice = viewingGemini
+    ? geminiReading?.failure
+      ? geminiAge
+        ? `这次没查到，仍显示${geminiAge}的结果：${geminiReading.failure}`
+        : `这次没查到：${geminiReading.failure}`
+      : geminiAge
     : undefined;
   const stateNotice =
     state.kind === "verified" && state.freshness === "update-failed"
@@ -290,18 +321,22 @@ export function WaterlineOverlay({
         ) : (
           <>
             <SubscriptionHeader
-              name={selectedSubscription?.name}
-              showNavigation={supportedSubscriptions.length > 1}
+              name={viewingGemini ? "Gemini" : selectedSubscription?.name}
+              showNavigation={(pageCount ?? supportedSubscriptions.length) > 1}
               onNavigate={onNavigate}
             />
             <div
               className={`${displayMode === "traffic" ? "quota-vessel traffic-monitor" : "quota-vessel"}${quotaSnapshot == null ? " empty-quota-state" : ""} ui-scale-${uiScale}`}
               aria-label={
-                quotaSnapshot
+                viewingGemini
                   ? displayMode === "traffic"
-                    ? "周额度和月额度的剩余额度"
-                    : "周额度和月额度的剩余水位"
-                  : statusText(state)
+                    ? "Gemini 5 小时限额和周限额的剩余额度"
+                    : "Gemini 5 小时限额和周限额的剩余水位"
+                  : quotaSnapshot
+                    ? displayMode === "traffic"
+                      ? "周额度和月额度的剩余额度"
+                      : "周额度和月额度的剩余水位"
+                    : statusText(state)
               }
               onMouseDown={onDragStart}
             >
@@ -309,14 +344,14 @@ export function WaterlineOverlay({
               displayMode === "traffic" ? (
                 <div className="traffic-bars">
                   {quotaSnapshot.weekly && (
-                    <TrafficBar periodLabel="周" period={quotaSnapshot.weekly} tone="weekly" compact={uiScale !== "large"} />
+                    <TrafficBar periodLabel={viewingGemini ? "5小时" : "周"} period={quotaSnapshot.weekly} tone="weekly" compact={uiScale !== "large"} fraction={viewingGemini} />
                   )}
                   {quotaSnapshot.monthly && (
-                    <TrafficBar periodLabel="月" period={quotaSnapshot.monthly} tone="monthly" compact={uiScale !== "large"} />
+                    <TrafficBar periodLabel={viewingGemini ? "周" : "月"} period={quotaSnapshot.monthly} tone="monthly" compact={uiScale !== "large"} fraction={viewingGemini} />
                   )}
-                  {stateNotice && (
+                  {(viewingGemini ? geminiNotice : stateNotice) && (
                     <div className="traffic-notice" aria-live="polite">
-                      <span>{stateNotice}</span>
+                      <span>{viewingGemini ? geminiNotice : stateNotice}</span>
                       {canRetry && (
                         <button type="button" className="retry-connection" onClick={onRetry}>
                           重新连接
@@ -348,15 +383,15 @@ export function WaterlineOverlay({
                   <div className="vessel-gloss" />
                   <div className={`quota-content${quotaSnapshot.weekly && quotaSnapshot.monthly ? "" : " single-period"}`}>
                     {quotaSnapshot.weekly && (
-                      <QuotaPeriod periodLabel="周" period={quotaSnapshot.weekly} tone="weekly" compact={uiScale !== "large"} />
+                      <QuotaPeriod periodLabel={viewingGemini ? "5小时" : "周"} period={quotaSnapshot.weekly} tone="weekly" compact={uiScale !== "large"} fraction={viewingGemini} />
                     )}
                     {quotaSnapshot.monthly && (
-                      <QuotaPeriod periodLabel="月" period={quotaSnapshot.monthly} tone="monthly" compact={uiScale !== "large"} />
+                      <QuotaPeriod periodLabel={viewingGemini ? "周" : "月"} period={quotaSnapshot.monthly} tone="monthly" compact={uiScale !== "large"} fraction={viewingGemini} />
                     )}
                   </div>
-                  {stateNotice && (
+                  {(viewingGemini ? geminiNotice : stateNotice) && (
                     <div className="state-notice" aria-live="polite">
-                      <span>{stateNotice}</span>
+                      <span>{viewingGemini ? geminiNotice : stateNotice}</span>
                       {canRetry && (
                         <button type="button" className="retry-connection" onClick={onRetry}>
                           重新连接
@@ -374,7 +409,7 @@ export function WaterlineOverlay({
             ) : (
               <div className="empty-vessel">
                 {canLogin ? <LogIn size={30} aria-hidden="true" /> : <MoreHorizontal size={30} aria-hidden="true" />}
-                <p aria-live="polite">{loginError ?? statusText(state)}</p>
+                <p aria-live="polite">{viewingGemini ? (geminiNotice ?? "尚未查询") : (loginError ?? statusText(state))}</p>
                 {canLogin && onLogin && (
                   <button className="empty-vessel-login" type="button" onClick={onLogin}>
                     <LogIn size={15} aria-hidden="true" />
@@ -447,12 +482,14 @@ function TrafficBar({
   periodLabel,
   period,
   tone,
-  compact
+  compact,
+  fraction = false
 }: {
   periodLabel: string;
   period: PeriodQuota;
   tone: "weekly" | "monthly";
   compact: boolean;
+  fraction?: boolean;
 }) {
   return (
     <div className={`traffic-bar-row ${tone}-traffic`}>
@@ -460,7 +497,9 @@ function TrafficBar({
       <div className={`traffic-bar-copy${compact ? " compact" : ""}`}>
         <strong>{periodLabel}</strong>
         <span>
-          {formatMoney(period.remainingAmount)} /{formatMoney(period.limit, 0)}
+          {fraction
+            ? formatRemainingPercent(period.remainingAmount.amount / 100)
+            : `${formatMoney(period.remainingAmount)} /${formatMoney(period.limit, 0)}`}
         </span>
         {period.resetCountdown && <em>{formatResetLabel(period.resetCountdown, compact)}</em>}
       </div>
@@ -514,23 +553,54 @@ function QuotaPeriod({
   periodLabel,
   period,
   tone,
-  compact
+  compact,
+  fraction = false
 }: {
   periodLabel: string;
   period: PeriodQuota;
   tone: "weekly" | "monthly";
   compact: boolean;
+  fraction?: boolean;
 }) {
   return (
     <div className={`quota-period ${tone}-period`}>
       <span>{periodLabel}</span>
       <p className="amount-line">
-        <strong>{formatMoney(period.remainingAmount)}</strong>
-        <small>/{formatMoney(period.limit, 0)}</small>
+        {fraction ? (
+          <strong>{formatRemainingPercent(period.remainingAmount.amount / 100)}</strong>
+        ) : (
+          <>
+            <strong>{formatMoney(period.remainingAmount)}</strong>
+            <small>/{formatMoney(period.limit, 0)}</small>
+          </>
+        )}
       </p>
       {period.resetCountdown && <em>{formatResetLabel(period.resetCountdown, compact)}</em>}
     </div>
   );
+}
+
+function geminiWindowPeriod(window: GeminiWindow, now: Date): PeriodQuota {
+  const fraction = Math.max(0, Math.min(1, window.remainingFraction));
+
+  return {
+    remainingAmount: { amount: fraction * 100, currency: "USD" },
+    limit: { amount: 100, currency: "USD" },
+    ...(window.resetTime && resetCountdown(window.resetTime, now)
+      ? { resetCountdown: resetCountdown(window.resetTime, now) }
+      : {})
+  };
+}
+
+function geminiQuotaSnapshot(reading: AntigravityReading | null, now: Date): QuotaSnapshot | undefined {
+  if (!readingHasWindows(reading)) {
+    return undefined;
+  }
+
+  return {
+    ...(reading.fiveHour ? { weekly: geminiWindowPeriod(reading.fiveHour, now) } : {}),
+    ...(reading.weekly ? { monthly: geminiWindowPeriod(reading.weekly, now) } : {})
+  };
 }
 
 function remainingDotCount(period: PeriodQuota) {
@@ -691,6 +761,12 @@ export default function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [site, setSite] = useState(() => localStorage.getItem(SITE_KEY) ?? "");
+  const [viewingGemini, setViewingGemini] = useState(false);
+  const [geminiReading, setGeminiReading] = useState<AntigravityReading | null>(() => loadGeminiReading());
+  const [googleSignedIn, setGoogleSignedIn] = useState(false);
+  const [geminiNow, setGeminiNow] = useState(() => new Date());
+  const geminiBusyRef = useRef(false);
   const [loginBusy, setLoginBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsOpenRef = useRef(false);
@@ -986,7 +1062,7 @@ export default function App() {
     if (nativeRuntime) {
       const { getCurrentWindow, LogicalSize } = await import("@tauri-apps/api/window");
       const window = getCurrentWindow();
-      await window.setSize(new LogicalSize(400, 460));
+      await window.setSize(new LogicalSize(400, 520));
       await keepWindowInsideWorkArea();
     }
   }, [keepWindowInsideWorkArea, nativeRuntime, restoreEdgeHide]);
@@ -1009,7 +1085,7 @@ export default function App() {
     setLoginOpen(true);
     const { getCurrentWindow, LogicalSize } = await import("@tauri-apps/api/window");
     const window = getCurrentWindow();
-    await window.setSize(new LogicalSize(400, 340));
+    await window.setSize(new LogicalSize(400, 430));
     await keepWindowInsideWorkArea();
   }, [keepWindowInsideWorkArea, nativeRuntime, restoreEdgeHide]);
 
@@ -1127,12 +1203,7 @@ export default function App() {
         return;
       }
 
-      const supportedCount = monitor
-        .getState()
-        .subscriptions.filter((subscription) => subscription.status === "supported").length;
-      if (supportedCount > 1) {
-        monitor.selectAdjacentSupportedSubscription(1);
-      }
+      selectAdjacentPageRef.current(1);
     }, autoCycleIntervalMs);
 
     return () => window.clearInterval(timer);
@@ -1148,7 +1219,13 @@ export default function App() {
     setLoginBusy(true);
     try {
       const { invoke } = await import("@tauri-apps/api/core");
-      const result = await invoke<{ auto_start_enabled: boolean }>("login_3r", { credentials: { email, password } });
+      const result = await invoke<{ auto_start_enabled: boolean; site?: string }>("login_3r", {
+        credentials: { email, password, site }
+      });
+      if (result.site) {
+        localStorage.setItem(SITE_KEY, result.site);
+        setSite(result.site);
+      }
       setAutoStartEnabled(result.auto_start_enabled);
       if (!result.auto_start_enabled) {
         setAutoStartError("登录成功，但无法启用开机自动启动");
@@ -1164,11 +1241,90 @@ export default function App() {
     } finally {
       setLoginBusy(false);
     }
-  }, [displayMode, email, loginBusy, monitor, nativeRuntime, password, resizeOverlay]);
+  }, [displayMode, email, loginBusy, monitor, nativeRuntime, password, resizeOverlay, site]);
 
   const retryConnection = useCallback(() => {
     void monitor.refresh();
   }, [monitor]);
+
+  const showGemini = googleSignedIn || geminiReading != null;
+  const selectAdjacentPage = useCallback((offset: -1 | 1) => {
+    const supported = monitor.getState().subscriptions.filter((subscription) => subscription.status === "supported");
+    const ids = [...supported.map((subscription) => subscription.id), ...(showGemini ? ["gemini"] : [])];
+
+    if (ids.length < 2) {
+      return;
+    }
+
+    const current = viewingGemini ? "gemini" : monitor.getState().selectedSubscriptionId;
+    const currentIndex = Math.max(0, ids.indexOf(current ?? ""));
+    const next = ids[(currentIndex + offset + ids.length) % ids.length];
+
+    if (next === "gemini") {
+      setViewingGemini(true);
+      return;
+    }
+
+    setViewingGemini(false);
+    monitor.selectSupportedSubscription(next);
+  }, [monitor, showGemini, viewingGemini]);
+  const selectAdjacentPageRef = useRef(selectAdjacentPage);
+  selectAdjacentPageRef.current = selectAdjacentPage;
+
+  const rememberGemini = useCallback((reading: AntigravityReading | null) => {
+    setGeminiReading(reading);
+    saveGeminiReading(reading);
+  }, []);
+
+  const runGeminiAction = useCallback(async (action: "login" | "query") => {
+    if (!nativeRuntime || geminiBusyRef.current) {
+      return;
+    }
+
+    geminiBusyRef.current = true;
+    setViewingGemini(true);
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+
+      if (action === "login") {
+        const result = await invoke<{ auto_start_enabled: boolean }>("login_google");
+        setGoogleSignedIn(true);
+        setAutoStartEnabled(result.auto_start_enabled);
+        if (!result.auto_start_enabled) {
+          setAutoStartError("Google 登录成功，但无法启用开机自动启动");
+        }
+        return;
+      }
+
+      const quota = await invoke<{ fiveHour?: GeminiWindow; weekly?: GeminiWindow }>("query_gemini_quota");
+      if (quota.fiveHour == null && quota.weekly == null) {
+        throw new Error("没有返回 Gemini 额度");
+      }
+      rememberGemini({
+        queriedAt: new Date().toISOString(),
+        ...(quota.fiveHour ? { fiveHour: quota.fiveHour } : {}),
+        ...(quota.weekly ? { weekly: quota.weekly } : {})
+      });
+      setGeminiNow(new Date());
+    } catch (error) {
+      const message = typeof error === "string" ? error : error instanceof Error ? error.message : "Gemini 请求失败";
+      if (message === "AUTHENTICATION_REQUIRED") {
+        setGoogleSignedIn(false);
+      }
+      setGeminiReading((current) => {
+        const next = {
+          queriedAt: current?.queriedAt ?? "",
+          ...(current?.fiveHour ? { fiveHour: current.fiveHour } : {}),
+          ...(current?.weekly ? { weekly: current.weekly } : {}),
+          failure: message === "AUTHENTICATION_REQUIRED" ? "Google 登录已过期，请重新登录" : message
+        };
+        saveGeminiReading(next);
+        return next;
+      });
+    } finally {
+      geminiBusyRef.current = false;
+    }
+  }, [nativeRuntime, rememberGemini]);
 
   useEffect(() => {
     const unsubscribe = monitor.subscribe(setState);
@@ -1203,6 +1359,11 @@ export default function App() {
   }, [monitor, nativeRuntime]);
 
   useEffect(() => {
+    const timer = window.setInterval(() => setGeminiNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (!nativeRuntime) {
       return;
     }
@@ -1210,9 +1371,19 @@ export default function App() {
     let disposed = false;
     void import("@tauri-apps/api/core").then(async ({ invoke }) => {
       try {
-        const enabled = await invoke<boolean>("auto_start_enabled");
-        if (!disposed) {
-          setAutoStartEnabled(enabled);
+        const [enabled, rememberedSite, google] = await Promise.all([
+          invoke<boolean>("auto_start_enabled"),
+          invoke<string | null>("remembered_site"),
+          invoke<{ signedIn: boolean }>("google_login_status")
+        ]);
+        if (disposed) {
+          return;
+        }
+        setAutoStartEnabled(enabled);
+        setGoogleSignedIn(google.signedIn);
+        if (rememberedSite) {
+          localStorage.setItem(SITE_KEY, rememberedSite);
+          setSite(rememberedSite);
         }
       } catch {
         if (!disposed) {
@@ -1303,16 +1474,23 @@ export default function App() {
           setDisplayMode(event.payload);
         }
       });
+      const stopGeminiAction = await listen<"login" | "query">("gemini-menu-action", (event) => {
+        if (event.payload === "login" || event.payload === "query") {
+          void runGeminiAction(event.payload);
+        }
+      });
 
       if (disposed) {
         stopListening();
         stopRestoring();
         stopDisplayMode();
+        stopGeminiAction();
       } else {
         unlisten = () => {
           stopListening();
           stopRestoring();
           stopDisplayMode();
+          stopGeminiAction();
         };
       }
     });
@@ -1321,13 +1499,13 @@ export default function App() {
       disposed = true;
       unlisten?.();
     };
-  }, [nativeRuntime, openSettings, restoreEdgeHide]);
+  }, [nativeRuntime, openSettings, restoreEdgeHide, runGeminiAction]);
 
   return (
     <>
       <WaterlineOverlay
         state={state}
-        onNavigate={(offset) => monitor.selectAdjacentSupportedSubscription(offset)}
+        onNavigate={selectAdjacentPage}
         onLogin={nativeRuntime ? () => void openOfficialLogin() : undefined}
         onOpenSettings={() => void openSettings()}
         onHide={() => void hideOverlay()}
@@ -1343,6 +1521,10 @@ export default function App() {
         edgeHideEdge={edgeHideEdge}
         loginError={loginError}
         onRetry={nativeRuntime ? retryConnection : undefined}
+        viewingGemini={viewingGemini && showGemini}
+        geminiReading={geminiReading}
+        geminiNow={geminiNow}
+        pageCount={state.subscriptions.filter((subscription) => subscription.status === "supported").length + (showGemini ? 1 : 0)}
       />
       {nativeRuntime && loginOpen && (
         <div className="login-backdrop" role="presentation">
@@ -1358,7 +1540,19 @@ export default function App() {
                 ×
               </button>
             </div>
-            <p>账号信息只用于本次向 3R 官方接口验证额度。</p>
+            <p>站点、邮箱和密码只用于本次向你填写的 3R 站点验证额度。密码不会保存。</p>
+            <label className="login-field">
+              站点
+              <input
+                type="text"
+                autoComplete="url"
+                placeholder="code.3rcd.com"
+                value={site}
+                onChange={(event) => setSite(event.target.value)}
+                required
+                disabled={loginBusy}
+              />
+            </label>
             <label className="login-field">
               邮箱
               <input
@@ -1475,6 +1669,20 @@ export default function App() {
             </div>
             <button
               type="button"
+              className="settings-secondary"
+              disabled={!googleSignedIn}
+              onClick={async () => {
+                const { invoke } = await import("@tauri-apps/api/core");
+                await invoke("sign_out_google");
+                setGoogleSignedIn(false);
+                rememberGemini(null);
+                setViewingGemini(false);
+              }}
+            >
+              退出 Google
+            </button>
+            <button
+              type="button"
               className="settings-danger"
               onClick={async () => {
                 const { invoke } = await import("@tauri-apps/api/core");
@@ -1483,6 +1691,11 @@ export default function App() {
                 if (!result.auto_start_disabled) {
                   setAutoStartError("登录信息已清除，但无法移除开机自动启动");
                 }
+                localStorage.removeItem(SITE_KEY);
+                setSite("");
+                setGoogleSignedIn(false);
+                rememberGemini(null);
+                setViewingGemini(false);
                 monitor.reset();
                 await closeSettings();
                 await monitor.refresh();
