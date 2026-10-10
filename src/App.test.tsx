@@ -279,6 +279,37 @@ describe("WaterlineOverlay", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
+  it("renders navigation buttons when Gemini pool is present alongside 3R subscription", () => {
+    const onNavigate = vi.fn();
+    render(
+      <WaterlineOverlay
+        state={{
+          kind: "verified",
+          selectedSubscriptionId: "gpt-4x",
+          subscriptions: [supportedSubscription],
+          lastAttemptAt: new Date("2026-08-21T01:00:00.000Z"),
+          lastVerifiedAt: new Date("2026-08-21T01:00:00.000Z"),
+          freshness: "current",
+          updateFailure: undefined
+        }}
+        onNavigate={onNavigate}
+        geminiCardTitle="Gemini 号池"
+        pageCount={2}
+      />
+    );
+
+    const prevButton = screen.getByRole("button", { name: "上一项订阅" });
+    const nextButton = screen.getByRole("button", { name: "下一项订阅" });
+    expect(prevButton).toBeTruthy();
+    expect(nextButton).toBeTruthy();
+
+    fireEvent.click(prevButton);
+    expect(onNavigate).toHaveBeenCalledWith(-1);
+
+    fireEvent.click(nextButton);
+    expect(onNavigate).toHaveBeenCalledWith(1);
+  });
+
   it("renders failure states but keeps unrelated Subscription cards out of the vessel", () => {
     const { rerender } = renderOverlay({
       kind: "unverified",

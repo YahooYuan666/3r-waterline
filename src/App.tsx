@@ -1245,6 +1245,7 @@ export default function App() {
       setPassword("");
       loginOpenRef.current = false;
       setLoginOpen(false);
+      setActiveGeminiPageId(null);
       await monitor.refresh();
       await resizeOverlay(displayMode);
     } catch (error) {
@@ -1280,6 +1281,12 @@ export default function App() {
     void monitor.refresh();
   }, [monitor]);
 
+  const supportedSubscriptions = useMemo(() => {
+    return state.subscriptions.filter(
+      (subscription): subscription is SupportedSubscription => subscription.status === "supported"
+    );
+  }, [state.subscriptions]);
+
   const hasGeminiData = googleAccounts.length > 0 || geminiPool.length > 0;
   const poolReading = useMemo(
     () => aggregateGeminiPool(geminiPool, geminiNow),
@@ -1287,15 +1294,12 @@ export default function App() {
   );
 
   const availablePages = useMemo(() => {
-    const supported = monitor
-      .getState()
-      .subscriptions.filter((subscription) => subscription.status === "supported");
     const pages: Array<{
       id: string;
       type: "3r" | "gemini-pool" | "gemini-account";
       geminiCardTitle?: string;
       geminiReading?: AntigravityReading | null;
-    }> = supported.map((sub) => ({ id: sub.id, type: "3r" }));
+    }> = supportedSubscriptions.map((sub) => ({ id: sub.id, type: "3r" }));
 
     if (hasGeminiData) {
       pages.push({
@@ -1318,7 +1322,7 @@ export default function App() {
     }
 
     return pages;
-  }, [hasGeminiData, geminiPool, monitor, poolReading, showIndividualGemini]);
+  }, [hasGeminiData, geminiPool, poolReading, showIndividualGemini, supportedSubscriptions]);
 
   const currentPage = useMemo(() => {
     if (activeGeminiPageId != null) {
@@ -1327,9 +1331,9 @@ export default function App() {
         return match;
       }
     }
-    const current3r = availablePages.find((p) => p.id === monitor.getState().selectedSubscriptionId);
+    const current3r = availablePages.find((p) => p.id === state.selectedSubscriptionId);
     return current3r ?? availablePages[0];
-  }, [activeGeminiPageId, availablePages, monitor]);
+  }, [activeGeminiPageId, availablePages, state.selectedSubscriptionId]);
 
   const selectAdjacentPage = useCallback(
     (offset: -1 | 1) => {
@@ -1362,7 +1366,6 @@ export default function App() {
       }
 
       geminiBusyRef.current = true;
-      setActiveGeminiPageId("gemini-pool");
       try {
         const { invoke } = await import("@tauri-apps/api/core");
 
@@ -1376,44 +1379,43 @@ export default function App() {
           if (!result.auto_start_enabled) {
             setAutoStartError("Google 登录成功，但无法启用开机自动启动");
           }
-          // Query right after adding account
-          action = "query";
+          // Do not force switch view on login; stay on current view.
+          return;
         }
 
-        if (action === "query") {
-          const quotaList = await invoke<
-            Array<{
-              id: string;
-              email: string;
-              fiveHour?: GeminiWindow;
-              weekly?: GeminiWindow;
-              error?: string;
-            }>
-          >("query_gemini_quota");
+        setActiveGeminiPageId("gemini-pool");
+        const quotaList = await invoke<
+          Array<{
+            id: string;
+            email: string;
+            fiveHour?: GeminiWindow;
+            weekly?: GeminiWindow;
+            error?: string;
+          }>
+        >("query_gemini_quota");
 
-          setGeminiPool((currentPool) => {
-            const nextMap = new Map<string, AccountGeminiReading>();
-            for (const item of currentPool) {
-              nextMap.set(item.id, item);
-            }
-            const queryTime = new Date().toISOString();
-            for (const q of quotaList) {
-              const existing = nextMap.get(q.id);
-              nextMap.set(q.id, {
-                id: q.id,
-                email: q.email || existing?.email || "Google 账号",
-                queriedAt: queryTime,
-                fiveHour: q.fiveHour ?? existing?.fiveHour,
-                weekly: q.weekly ?? existing?.weekly,
-                failure: q.error
-              });
-            }
-            const nextList = Array.from(nextMap.values());
-            saveGeminiPool(nextList);
-            return nextList;
-          });
-          setGeminiNow(new Date());
-        }
+        setGeminiPool((currentPool) => {
+          const nextMap = new Map<string, AccountGeminiReading>();
+          for (const item of currentPool) {
+            nextMap.set(item.id, item);
+          }
+          const queryTime = new Date().toISOString();
+          for (const q of quotaList) {
+            const existing = nextMap.get(q.id);
+            nextMap.set(q.id, {
+              id: q.id,
+              email: q.email || existing?.email || "Google 账号",
+              queriedAt: queryTime,
+              fiveHour: q.fiveHour ?? existing?.fiveHour,
+              weekly: q.weekly ?? existing?.weekly,
+              failure: q.error
+            });
+          }
+          const nextList = Array.from(nextMap.values());
+          saveGeminiPool(nextList);
+          return nextList;
+        });
+        setGeminiNow(new Date());
       } catch (error) {
         const message =
           typeof error === "string" ? error : error instanceof Error ? error.message : "Gemini 请求失败";
