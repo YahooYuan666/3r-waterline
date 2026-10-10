@@ -26,6 +26,7 @@ import {
   type EdgeHidePlacement
 } from "./domain/edge-hide";
 import { clampWindowPosition, fitWindowSize, resolveTrafficOverlayHeight } from "./domain/window-geometry";
+import { modelToneFor } from "./domain/model-tone";
 import {
   accountShortName,
   aggregateGeminiPool,
@@ -83,10 +84,24 @@ const AUTO_CYCLE_KEY = "3r-waterline-auto-cycle-ms";
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const AUTO_CYCLE_OPTIONS = [0, 30_000, 60_000, 300_000, 600_000] as const;
 const EDGE_METER_SEGMENTS = 10;
-const EDGE_TICK_COLORS = {
-  weekly: { dim: "rgba(62, 224, 138, 0.24)", lit: "#3ee08a" },
-  monthly: { dim: "rgba(90, 168, 255, 0.24)", lit: "#5aa8ff" }
+const EDGE_TICK_VARS = {
+  weekly: { dim: "--tone-dim", lit: "--tone-lit" },
+  monthly: { dim: "--tone-dark-soft", lit: "--tone-dark-solid" }
 } as const;
+
+function readCssColor(variable: string, fallback: string) {
+  if (typeof window === "undefined" || typeof getComputedStyle !== "function") {
+    return fallback;
+  }
+
+  const stage = document.querySelector(".waterline-stage");
+  if (stage == null) {
+    return fallback;
+  }
+
+  const value = getComputedStyle(stage).getPropertyValue(variable).trim();
+  return value === "" ? fallback : value;
+}
 
 function useDevicePixelRatio() {
   const [dpr, setDpr] = useState(() => (typeof window === "undefined" ? 1 : window.devicePixelRatio || 1));
@@ -270,6 +285,7 @@ export function WaterlineOverlay({
     state.kind === "verified" && state.freshness === "update-failed"
       ? statusText(state)
       : undefined;
+  const modelTone = viewingGemini ? "gemini" : modelToneFor(selectedSubscription?.name);
   const canLogin =
     state.kind === "unverified" &&
     (state.reason === "starting" || state.reason === "authentication-required") &&
@@ -303,7 +319,7 @@ export function WaterlineOverlay({
 
   return (
     <main
-      className={`waterline-stage display-mode-${displayMode} ui-scale-${uiScale}${edgeHidden ? ` edge-hidden edge-hidden-${edgeHideEdge}` : ""}`}
+      className={`waterline-stage display-mode-${displayMode} ui-scale-${uiScale} tone-${modelTone}${edgeHidden ? ` edge-hidden edge-hidden-${edgeHideEdge}` : ""}`}
       onContextMenu={edgeHidden ? undefined : openContextMenu}
       onClick={() => setContextMenu(undefined)}
       onMouseEnter={onEdgeMouseEnter}
@@ -660,13 +676,15 @@ function EdgeHideMeter({
 
     tracks.forEach((track, trackIndex) => {
       const origin = trackIndex * (layout.track + layout.groupGap);
-      const colors = EDGE_TICK_COLORS[track.tone];
+      const variables = EDGE_TICK_VARS[track.tone];
+      const dim = readCssColor(variables.dim, "rgba(90, 120, 150, 0.24)");
+      const lit = readCssColor(variables.lit, "#5aa8ff");
 
       for (let index = 0; index < EDGE_METER_SEGMENTS; index += 1) {
         const isRemaining = horizontal
           ? index < track.remainingDots
           : index >= EDGE_METER_SEGMENTS - track.remainingDots;
-        ctx.fillStyle = isRemaining ? colors.lit : colors.dim;
+        ctx.fillStyle = isRemaining ? lit : dim;
         const offset = index * (layout.tick + layout.gap);
 
         if (horizontal) {

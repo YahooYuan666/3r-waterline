@@ -153,6 +153,84 @@ button:focus-visible {
   isolation: isolate;
 }
 
+/* Model colour families. Each family carries a light and a dark step; the
+   weekly window uses the light step and the monthly window the dark one, so
+   the two windows stay distinguishable inside one family. */
+.waterline-stage {
+  --tone-light: rgb(32 165 104 / 78%);
+  --tone-dark: rgb(40 127 209 / 78%);
+  --tone-light-solid: #20a568;
+  --tone-dark-solid: #287fd1;
+  --tone-light-soft: rgb(32 165 104 / 45%);
+  --tone-dark-soft: rgb(40 127 209 / 45%);
+  --tone-light-grad-top: rgb(29 209 132 / 88%);
+  --tone-light-grad-bottom: rgb(8 141 84 / 88%);
+  --tone-dark-grad-top: rgb(72 154 255 / 88%);
+  --tone-dark-grad-bottom: rgb(37 97 205 / 88%);
+  --tone-dim: rgb(62 224 138 / 24%);
+  --tone-lit: #3ee08a;
+}
+
+.tone-gpt {
+  --tone-light: rgb(233 236 240 / 82%);
+  --tone-dark: rgb(122 132 145 / 82%);
+  --tone-light-solid: #e9ecf0;
+  --tone-dark-solid: #7a8491;
+  --tone-light-soft: rgb(233 236 240 / 40%);
+  --tone-dark-soft: rgb(122 132 145 / 40%);
+  --tone-light-grad-top: rgb(248 250 252 / 92%);
+  --tone-light-grad-bottom: rgb(196 204 214 / 92%);
+  --tone-dark-grad-top: rgb(176 186 198 / 92%);
+  --tone-dark-grad-bottom: rgb(108 119 132 / 92%);
+  --tone-dim: rgb(233 236 240 / 24%);
+  --tone-lit: #f4f6f8;
+}
+
+.tone-claude {
+  --tone-light: rgb(240 205 143 / 80%);
+  --tone-dark: rgb(206 132 58 / 80%);
+  --tone-light-solid: #f0cd8f;
+  --tone-dark-solid: #ce843a;
+  --tone-light-soft: rgb(240 205 143 / 45%);
+  --tone-dark-soft: rgb(206 132 58 / 45%);
+  --tone-light-grad-top: rgb(252 227 186 / 90%);
+  --tone-light-grad-bottom: rgb(214 160 87 / 90%);
+  --tone-dark-grad-top: rgb(240 173 100 / 90%);
+  --tone-dark-grad-bottom: rgb(180 101 36 / 90%);
+  --tone-dim: rgb(240 205 143 / 24%);
+  --tone-lit: #f3d09a;
+}
+
+.tone-gemini {
+  --tone-light: rgb(244 173 214 / 80%);
+  --tone-dark: rgb(152 87 214 / 80%);
+  --tone-light-solid: #f4add6;
+  --tone-dark-solid: #9857d6;
+  --tone-light-soft: rgb(244 173 214 / 45%);
+  --tone-dark-soft: rgb(152 87 214 / 45%);
+  --tone-light-grad-top: rgb(252 202 232 / 90%);
+  --tone-light-grad-bottom: rgb(214 122 183 / 90%);
+  --tone-dark-grad-top: rgb(196 132 244 / 90%);
+  --tone-dark-grad-bottom: rgb(133 61 197 / 90%);
+  --tone-dim: rgb(244 173 214 / 24%);
+  --tone-lit: #f7b8de;
+}
+
+.tone-grok {
+  --tone-light: rgb(239 106 106 / 80%);
+  --tone-dark: rgb(30 30 34 / 88%);
+  --tone-light-solid: #ef6a6a;
+  --tone-dark-solid: #1e1e22;
+  --tone-light-soft: rgb(239 106 106 / 45%);
+  --tone-dark-soft: rgb(30 30 34 / 55%);
+  --tone-light-grad-top: rgb(255 138 138 / 90%);
+  --tone-light-grad-bottom: rgb(199 63 63 / 90%);
+  --tone-dark-grad-top: rgb(78 78 86 / 92%);
+  --tone-dark-grad-bottom: rgb(24 24 27 / 92%);
+  --tone-dim: rgb(239 106 106 / 24%);
+  --tone-lit: #ff8a8a;
+}
+
 .water-fill {
   position: absolute;
   bottom: 0;
@@ -163,13 +241,13 @@ button:focus-visible {
 .weekly-fill {
   left: 0;
   width: 50%;
-  background: rgb(32 165 104 / 78%);
+  background: var(--tone-light);
 }
 
 .monthly-fill {
   right: 0;
   width: 50%;
-  background: rgb(40 127 209 / 78%);
+  background: var(--tone-dark);
 }
 
 .water-fill.single-fill {
@@ -591,9 +669,9 @@ button:focus-visible {
   min-width: 0;
   height: 44px;
   overflow: hidden;
-  border: 1px solid rgb(31 81 59 / 45%);
+  border: 1px solid var(--tone-light-soft);
   border-radius: 7px;
-  background: #46695b;
+  background: var(--tone-light-soft);
   box-shadow: 0 4px 10px rgb(19 62 43 / 20%);
 }
 
@@ -613,15 +691,15 @@ button:focus-visible {
 }
 
 .weekly-traffic .traffic-bar-fill {
-  background: #20a568;
+  background: var(--tone-light-solid);
 }
 
 .monthly-traffic .traffic-bar-fill {
-  background: #287fd1;
+  background: var(--tone-dark-solid);
 }
 
 .monthly-traffic {
-  background: #3a5872;
+  background: var(--tone-dark-soft);
 }
 
 .traffic-bar-copy {
@@ -1179,11 +1257,11 @@ button:focus-visible {
 }
 
 .weekly-fill {
-  background: linear-gradient(180deg, rgb(29 209 132 / 88%), rgb(8 141 84 / 88%));
+  background: linear-gradient(180deg, var(--tone-light-grad-top), var(--tone-light-grad-bottom));
 }
 
 .monthly-fill {
-  background: linear-gradient(180deg, rgb(72 154 255 / 88%), rgb(37 97 205 / 88%));
+  background: linear-gradient(180deg, var(--tone-dark-grad-top), var(--tone-dark-grad-bottom));
 }
 
 .vessel-divider {
@@ -1280,15 +1358,15 @@ button:focus-visible {
 }
 
 .weekly-traffic .traffic-bar-fill {
-  background: linear-gradient(90deg, #159c61, #27d389);
+  background: linear-gradient(90deg, var(--tone-light-grad-bottom), var(--tone-light-grad-top));
 }
 
 .monthly-traffic .traffic-bar-fill {
-  background: linear-gradient(90deg, #276fcf, #559fff);
+  background: linear-gradient(90deg, var(--tone-dark-grad-bottom), var(--tone-dark-grad-top));
 }
 
 .monthly-traffic {
-  background: rgb(35 54 79 / 72%);
+  background: var(--tone-dark-soft);
 }
 
 .traffic-bar-copy {

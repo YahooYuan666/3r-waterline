@@ -100,7 +100,79 @@ describe("antigravity reading", () => {
     expect(pool?.failure).toBeUndefined();
   });
 
-  it("leaves out accounts whose read failed entirely", () => {
+  it("leaves a weekly-exhausted account out of the five-hour average only", () => {
+    const accounts: AccountGeminiReading[] = [
+      {
+        id: "acc1",
+        email: "user1@gmail.com",
+        queriedAt: "2026-10-04T04:00:00.000Z",
+        fiveHour: { remainingFraction: 0.4, resetTime: "2026-10-04T08:00:00.000Z" },
+        weekly: { remainingFraction: 0.8, resetTime: "2026-10-10T10:00:00.000Z" }
+      },
+      {
+        id: "acc2",
+        email: "user2@gmail.com",
+        queriedAt: "2026-10-04T04:10:00.000Z",
+        // Weekly is spent, so the account is dead for the week, yet Google
+        // still reports a non-zero five-hour figure. That figure is not real
+        // headroom and must not inflate the five-hour average.
+        fiveHour: { remainingFraction: 1, resetTime: "2026-10-04T09:00:00.000Z" },
+        weekly: { remainingFraction: 0, resetTime: "2026-10-10T12:00:00.000Z" }
+      }
+    ];
+
+    const pool = aggregateGeminiPool(accounts, now);
+
+    // Five-hour averages acc1 alone: 0.4, not (0.4 + 1) / 2 = 0.7.
+    expect(pool?.fiveHour?.remainingFraction).toBeCloseTo(0.4);
+    // Weekly still counts both: (0.8 + 0) / 2 = 0.4.
+    expect(pool?.weekly?.remainingFraction).toBeCloseTo(0.4);
+  });
+
+it("keeps a five-hour-exhausted account in both averages", () => {
+    const accounts: AccountGeminiReading[] = [
+      {
+        id: "acc1",
+        email: "user1@gmail.com",
+        queriedAt: "2026-10-04T04:00:00.000Z",
+        fiveHour: { remainingFraction: 0.5, resetTime: "2026-10-04T08:00:00.000Z" },
+        weekly: { remainingFraction: 0.8, resetTime: "2026-10-10T10:00:00.000Z" }
+      },
+      {
+        id: "acc2",
+        email: "user2@gmail.com",
+        queriedAt: "2026-10-04T04:10:00.000Z",
+        // Weekly is healthy, so the account still counts; its spent five-hour
+        // window is a real zero.
+        fiveHour: { remainingFraction: 0, resetTime: "2026-10-04T06:00:00.000Z" },
+        weekly: { remainingFraction: 1, resetTime: "2026-10-10T12:00:00.000Z" }
+      }
+    ];
+
+    const pool = aggregateGeminiPool(accounts, now);
+
+    expect(pool?.fiveHour?.remainingFraction).toBeCloseTo(0.25);
+    expect(pool?.weekly?.remainingFraction).toBeCloseTo(0.9);
+  });
+
+it("drops the five-hour window when every account is weekly-exhausted", () => {
+    const accounts: AccountGeminiReading[] = [
+      {
+        id: "acc1",
+        email: "user1@gmail.com",
+        queriedAt: "2026-10-04T04:00:00.000Z",
+        fiveHour: { remainingFraction: 1, resetTime: "2026-10-04T09:00:00.000Z" },
+        weekly: { remainingFraction: 0, resetTime: "2026-10-10T10:00:00.000Z" }
+      }
+    ];
+
+    const pool = aggregateGeminiPool(accounts, now);
+
+    expect(pool?.fiveHour).toBeUndefined();
+    expect(pool?.weekly?.remainingFraction).toBeCloseTo(0);
+  });
+
+it("leaves out accounts whose read failed entirely", () => {
     const accounts: AccountGeminiReading[] = [
       {
         id: "acc1",

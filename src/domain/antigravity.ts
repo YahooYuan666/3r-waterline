@@ -88,11 +88,17 @@ export function accountShortName(email: string): string {
 }
 
 /**
- * Calculates equal-weighted average pool quota across every account that
- * reported quota for that window. An account with no quota for a window counts
- * as 0 for that window — that is real data, not missing data. Only accounts
- * whose read failed (network error, expired login) are left out, because for
- * those the quota is unknown rather than zero.
+ * Calculates equal-weighted average pool quota across the accounts that count
+ * for each window.
+ *
+ * An account with no quota at all counts as 0: that state never recovers.
+ * An account whose weekly window is spent is left out of the five-hour average
+ * only. Google still reports a five-hour figure for such an account, but the
+ * account can no longer be used at all this week, so counting that figure would
+ * overstate the genuinely usable five-hour headroom. It still counts as 0 in the
+ * weekly average, which is the honest reading of a spent weekly window.
+ * Accounts whose read failed (network error, expired login) are excluded from
+ * both, since for those the quota is unknown rather than zero.
  *
  * Reset times take the earliest upcoming reset time among reporting accounts.
  */
@@ -104,8 +110,10 @@ export function aggregateGeminiPool(
     return null;
   }
 
+  // A spent weekly window means the account is unusable, so its reported
+  // five-hour figure is not real headroom and is left out of that average.
   const fiveHourAccounts = accounts.filter(
-    (acc) => acc.fiveHour != null || !readFailed(acc)
+    (acc) => !readFailed(acc) && !isExhausted(acc.weekly)
   );
   const weeklyAccounts = accounts.filter(
     (acc) => acc.weekly != null || !readFailed(acc)
@@ -168,6 +176,11 @@ export function aggregateGeminiPool(
 /** A read that never reached Google: the quota is unknown, not zero. */
 function readFailed(account: AccountGeminiReading) {
   return account.fiveHour == null && account.weekly == null && account.noQuota == null;
+}
+
+/** A weekly window that was spent down: the account can no longer be used. */
+function isExhausted(window: GeminiWindow | undefined) {
+  return window != null && window.remainingFraction <= 0;
 }
 
 function findEarliestResetTime(resetTimes: Array<string | undefined>): string | undefined {
