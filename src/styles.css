@@ -169,8 +169,6 @@ button:focus-visible {
   --tone-dark-grad-bottom: rgb(37 97 205 / 88%);
   --tone-dim: rgb(62 224 138 / 24%);
   --tone-lit: #3ee08a;
-  --row-border: rgb(31 81 59 / 45%);
-  --row-bg: #46695b;
 }
 
 /* Per-model colours are opt-in; the default keeps the original green/blue pair. */
@@ -187,8 +185,10 @@ button:focus-visible {
   --tone-dark-grad-bottom: rgb(37 97 205 / 88%);
   --tone-dim: rgb(62 224 138 / 24%);
   --tone-lit: #3ee08a;
-  --row-border: rgb(31 81 59 / 45%);
-  --row-bg: #46695b;
+  --tone-row-light: #46695b;
+  --tone-row-dark: #3a5872;
+  --tone-border-light: rgb(31 81 59 / 45%);
+  --tone-border-dark: rgb(30 51 71 / 45%);
 }
 
 .tone-gpt {
@@ -204,8 +204,10 @@ button:focus-visible {
   --tone-dark-grad-bottom: rgb(108 119 132 / 92%);
   --tone-dim: rgb(233 236 240 / 24%);
   --tone-lit: #f4f6f8;
-  --row-border: rgb(233 236 240 / 30%);
-  --row-bg: rgb(96 106 118 / 75%);
+  --tone-row-light: rgb(104 114 126 / 78%);
+  --tone-row-dark: rgb(66 74 84 / 82%);
+  --tone-border-light: rgb(233 236 240 / 28%);
+  --tone-border-dark: rgb(210 214 220 / 26%);
 }
 
 .tone-claude {
@@ -221,8 +223,10 @@ button:focus-visible {
   --tone-dark-grad-bottom: rgb(180 101 36 / 90%);
   --tone-dim: rgb(240 205 143 / 24%);
   --tone-lit: #f3d09a;
-  --row-border: rgb(240 205 143 / 34%);
-  --row-bg: rgb(150 100 52 / 72%);
+  --tone-row-light: rgb(158 112 58 / 76%);
+  --tone-row-dark: rgb(122 68 30 / 80%);
+  --tone-border-light: rgb(240 205 143 / 34%);
+  --tone-border-dark: rgb(214 148 84 / 32%);
 }
 
 .tone-gemini {
@@ -238,8 +242,10 @@ button:focus-visible {
   --tone-dark-grad-bottom: rgb(28 138 84 / 90%);
   --tone-dim: rgb(126 231 168 / 24%);
   --tone-lit: #8febaf;
-  --row-border: rgb(126 231 168 / 32%);
-  --row-bg: rgb(38 120 78 / 72%);
+  --tone-row-light: rgb(44 128 84 / 76%);
+  --tone-row-dark: rgb(24 92 60 / 82%);
+  --tone-border-light: rgb(126 231 168 / 32%);
+  --tone-border-dark: rgb(96 210 150 / 30%);
 }
 
 .tone-grok {
@@ -255,8 +261,10 @@ button:focus-visible {
   --tone-dark-grad-bottom: rgb(88 0 0 / 94%);
   --tone-dim: rgb(239 45 45 / 26%);
   --tone-lit: #ff5a5a;
-  --row-border: rgb(239 45 45 / 36%);
-  --row-bg: rgb(96 12 12 / 78%);
+  --tone-row-light: rgb(122 18 18 / 80%);
+  --tone-row-dark: rgb(74 0 0 / 86%);
+  --tone-border-light: rgb(239 45 45 / 36%);
+  --tone-border-dark: rgb(200 30 30 / 34%);
 }
 
 .water-fill {
@@ -697,10 +705,20 @@ button:focus-visible {
   min-width: 0;
   height: 44px;
   overflow: hidden;
-  border: 1px solid var(--row-border);
+  border: 1px solid var(--tone-border-light);
   border-radius: 7px;
-  background: var(--row-bg);
+  background: var(--tone-row-light);
   box-shadow: 0 4px 10px rgb(19 62 43 / 20%);
+}
+
+.weekly-traffic {
+  background: var(--tone-row-light);
+  border-color: var(--tone-border-light);
+}
+
+.monthly-traffic {
+  background: var(--tone-row-dark);
+  border-color: var(--tone-border-dark);
 }
 
 .traffic-monitor.ui-scale-medium .traffic-bar-row {
@@ -724,10 +742,6 @@ button:focus-visible {
 
 .monthly-traffic .traffic-bar-fill {
   background: var(--tone-dark-solid);
-}
-
-.monthly-traffic {
-  background: var(--tone-dark-soft);
 }
 
 .traffic-bar-copy {
@@ -1371,9 +1385,7 @@ button:focus-visible {
 
 .traffic-bar-row {
   height: 38px;
-  border-color: rgb(193 216 233 / 16%);
   border-radius: 5px;
-  background: rgb(37 62 55 / 65%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
 }
 
@@ -1391,14 +1403,6 @@ button:focus-visible {
 
 .monthly-traffic .traffic-bar-fill {
   background: linear-gradient(90deg, var(--tone-dark-grad-bottom), var(--tone-dark-grad-top));
-}
-
-.monthly-traffic {
-  background: var(--tone-dark-soft);
-}
-
-.traffic-bar-row {
-  background: var(--row-bg);
 }
 
 .traffic-bar-copy {
