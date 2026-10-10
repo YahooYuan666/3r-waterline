@@ -169,6 +169,26 @@ button:focus-visible {
   --tone-dark-grad-bottom: rgb(37 97 205 / 88%);
   --tone-dim: rgb(62 224 138 / 24%);
   --tone-lit: #3ee08a;
+  --row-border: rgb(31 81 59 / 45%);
+  --row-bg: #46695b;
+}
+
+/* Per-model colours are opt-in; the default keeps the original green/blue pair. */
+.tone-classic {
+  --tone-light: rgb(32 165 104 / 78%);
+  --tone-dark: rgb(40 127 209 / 78%);
+  --tone-light-solid: #20a568;
+  --tone-dark-solid: #287fd1;
+  --tone-light-soft: rgb(32 165 104 / 45%);
+  --tone-dark-soft: rgb(40 127 209 / 45%);
+  --tone-light-grad-top: rgb(29 209 132 / 88%);
+  --tone-light-grad-bottom: rgb(8 141 84 / 88%);
+  --tone-dark-grad-top: rgb(72 154 255 / 88%);
+  --tone-dark-grad-bottom: rgb(37 97 205 / 88%);
+  --tone-dim: rgb(62 224 138 / 24%);
+  --tone-lit: #3ee08a;
+  --row-border: rgb(31 81 59 / 45%);
+  --row-bg: #46695b;
 }
 
 .tone-gpt {
@@ -184,6 +204,8 @@ button:focus-visible {
   --tone-dark-grad-bottom: rgb(108 119 132 / 92%);
   --tone-dim: rgb(233 236 240 / 24%);
   --tone-lit: #f4f6f8;
+  --row-border: rgb(233 236 240 / 30%);
+  --row-bg: rgb(96 106 118 / 75%);
 }
 
 .tone-claude {
@@ -199,36 +221,42 @@ button:focus-visible {
   --tone-dark-grad-bottom: rgb(180 101 36 / 90%);
   --tone-dim: rgb(240 205 143 / 24%);
   --tone-lit: #f3d09a;
+  --row-border: rgb(240 205 143 / 34%);
+  --row-bg: rgb(150 100 52 / 72%);
 }
 
 .tone-gemini {
-  --tone-light: rgb(244 173 214 / 80%);
-  --tone-dark: rgb(152 87 214 / 80%);
-  --tone-light-solid: #f4add6;
-  --tone-dark-solid: #9857d6;
-  --tone-light-soft: rgb(244 173 214 / 45%);
-  --tone-dark-soft: rgb(152 87 214 / 45%);
-  --tone-light-grad-top: rgb(252 202 232 / 90%);
-  --tone-light-grad-bottom: rgb(214 122 183 / 90%);
-  --tone-dark-grad-top: rgb(196 132 244 / 90%);
-  --tone-dark-grad-bottom: rgb(133 61 197 / 90%);
-  --tone-dim: rgb(244 173 214 / 24%);
-  --tone-lit: #f7b8de;
+  --tone-light: rgb(126 231 168 / 80%);
+  --tone-dark: rgb(45 176 108 / 80%);
+  --tone-light-solid: #7ee7a8;
+  --tone-dark-solid: #2db06c;
+  --tone-light-soft: rgb(126 231 168 / 45%);
+  --tone-dark-soft: rgb(45 176 108 / 45%);
+  --tone-light-grad-top: rgb(163 240 194 / 90%);
+  --tone-light-grad-bottom: rgb(74 200 138 / 90%);
+  --tone-dark-grad-top: rgb(96 208 152 / 90%);
+  --tone-dark-grad-bottom: rgb(28 138 84 / 90%);
+  --tone-dim: rgb(126 231 168 / 24%);
+  --tone-lit: #8febaf;
+  --row-border: rgb(126 231 168 / 32%);
+  --row-bg: rgb(38 120 78 / 72%);
 }
 
 .tone-grok {
-  --tone-light: rgb(239 106 106 / 80%);
-  --tone-dark: rgb(30 30 34 / 88%);
-  --tone-light-solid: #ef6a6a;
-  --tone-dark-solid: #1e1e22;
-  --tone-light-soft: rgb(239 106 106 / 45%);
-  --tone-dark-soft: rgb(30 30 34 / 55%);
-  --tone-light-grad-top: rgb(255 138 138 / 90%);
-  --tone-light-grad-bottom: rgb(199 63 63 / 90%);
-  --tone-dark-grad-top: rgb(78 78 86 / 92%);
-  --tone-dark-grad-bottom: rgb(24 24 27 / 92%);
-  --tone-dim: rgb(239 106 106 / 24%);
-  --tone-lit: #ff8a8a;
+  --tone-light: rgb(239 45 45 / 84%);
+  --tone-dark: rgb(122 0 0 / 90%);
+  --tone-light-solid: #ef2d2d;
+  --tone-dark-solid: #7a0000;
+  --tone-light-soft: rgb(239 45 45 / 50%);
+  --tone-dark-soft: rgb(122 0 0 / 58%);
+  --tone-light-grad-top: rgb(255 90 90 / 94%);
+  --tone-light-grad-bottom: rgb(199 20 20 / 94%);
+  --tone-dark-grad-top: rgb(168 24 24 / 94%);
+  --tone-dark-grad-bottom: rgb(88 0 0 / 94%);
+  --tone-dim: rgb(239 45 45 / 26%);
+  --tone-lit: #ff5a5a;
+  --row-border: rgb(239 45 45 / 36%);
+  --row-bg: rgb(96 12 12 / 78%);
 }
 
 .water-fill {
@@ -669,9 +697,9 @@ button:focus-visible {
   min-width: 0;
   height: 44px;
   overflow: hidden;
-  border: 1px solid var(--tone-light-soft);
+  border: 1px solid var(--row-border);
   border-radius: 7px;
-  background: var(--tone-light-soft);
+  background: var(--row-bg);
   box-shadow: 0 4px 10px rgb(19 62 43 / 20%);
 }
 
@@ -1367,6 +1395,10 @@ button:focus-visible {
 
 .monthly-traffic {
   background: var(--tone-dark-soft);
+}
+
+.traffic-bar-row {
+  background: var(--row-bg);
 }
 
 .traffic-bar-copy {

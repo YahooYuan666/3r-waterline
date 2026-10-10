@@ -203,6 +203,26 @@ describe("WaterlineOverlay", () => {
     expect(vessel.textContent).not.toContain("$");
   });
 
+  it("keeps the classic green/blue look unless per-model colours are enabled", () => {
+    const state = {
+      kind: "verified" as const,
+      selectedSubscriptionId: "gpt-4x",
+      subscriptions: [supportedSubscription],
+      lastAttemptAt: new Date("2026-08-21T01:00:00.000Z"),
+      lastVerifiedAt: new Date("2026-08-21T01:00:00.000Z"),
+      freshness: "current" as const,
+      updateFailure: undefined
+    };
+
+    const { container, rerender } = render(
+      <WaterlineOverlay state={state} onNavigate={vi.fn()} />
+    );
+    expect(container.querySelector(".waterline-stage")?.className).toContain("tone-classic");
+
+    rerender(<WaterlineOverlay state={state} onNavigate={vi.fn()} modelColors />);
+    expect(container.querySelector(".waterline-stage")?.className).toContain("tone-gpt");
+  });
+
   it("delegates a primary-button press on the quota surface to the native drag handler", () => {
     const onDragStart = vi.fn();
     render(

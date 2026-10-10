@@ -84,6 +84,7 @@ const AUTO_CYCLE_KEY = "3r-waterline-auto-cycle-ms";
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const AUTO_CYCLE_OPTIONS = [0, 30_000, 60_000, 300_000, 600_000] as const;
 const EDGE_METER_SEGMENTS = 10;
+const MODEL_COLORS_KEY = "3r-waterline-model-colors";
 const EDGE_TICK_VARS = {
   weekly: { dim: "--tone-dim", lit: "--tone-lit" },
   monthly: { dim: "--tone-dark-soft", lit: "--tone-dark-solid" }
@@ -231,8 +232,9 @@ interface WaterlineOverlayProps {
   onRetry?: () => void;
   geminiCardTitle?: string;
   geminiReading?: AntigravityReading | null;
-  geminiNow?: Date;
-  pageCount?: number;
+geminiNow?: Date;
+pageCount?: number;
+modelColors?: boolean;
 }
 
 export function WaterlineOverlay({
@@ -255,8 +257,9 @@ export function WaterlineOverlay({
   onRetry,
   geminiCardTitle,
   geminiReading = null,
-  geminiNow,
-  pageCount
+geminiNow,
+pageCount,
+modelColors = false
 }: WaterlineOverlayProps) {
   const viewingGemini = Boolean(geminiCardTitle);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number }>();
@@ -285,7 +288,11 @@ export function WaterlineOverlay({
     state.kind === "verified" && state.freshness === "update-failed"
       ? statusText(state)
       : undefined;
-  const modelTone = viewingGemini ? "gemini" : modelToneFor(selectedSubscription?.name);
+  const modelTone = modelColors
+    ? viewingGemini
+      ? "gemini"
+      : modelToneFor(selectedSubscription?.name)
+    : "classic";
   const canLogin =
     state.kind === "unverified" &&
     (state.reason === "starting" || state.reason === "authentication-required") &&
@@ -791,6 +798,9 @@ export default function App() {
   const [showIndividualGemini, setShowIndividualGemini] = useState(() =>
     readBooleanPreference(SHOW_INDIVIDUAL_GEMINI_KEY, true)
   );
+  const [modelColors, setModelColors] = useState(() =>
+    readBooleanPreference(MODEL_COLORS_KEY, false)
+  );
   const [geminiNow, setGeminiNow] = useState(() => new Date());
   const geminiBusyRef = useRef(false);
   const [loginBusy, setLoginBusy] = useState(false);
@@ -837,6 +847,10 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(SHOW_INDIVIDUAL_GEMINI_KEY, String(showIndividualGemini));
   }, [showIndividualGemini]);
+
+  useEffect(() => {
+    window.localStorage.setItem(MODEL_COLORS_KEY, String(modelColors));
+  }, [modelColors]);
 
   const resizeOverlay = useCallback(async (mode: DisplayMode, scale: UiScale = uiScale) => {
     if (!nativeRuntime) {
@@ -1656,6 +1670,7 @@ export default function App() {
         geminiReading={currentPage?.geminiReading}
         geminiNow={geminiNow}
         pageCount={availablePages.length}
+        modelColors={modelColors}
       />
       {nativeRuntime && loginOpen && (
         <div className="login-backdrop" role="presentation">
@@ -1798,6 +1813,14 @@ export default function App() {
                 ))}
               </div>
             </div>
+            <label className="settings-toggle">
+              <span>按模型配色</span>
+              <input
+                type="checkbox"
+                checked={modelColors}
+                onChange={(event) => setModelColors(event.target.checked)}
+              />
+            </label>
             <label className="settings-toggle">
               <span>显示单个 Gemini 账号</span>
               <input
