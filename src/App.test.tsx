@@ -181,7 +181,7 @@ describe("WaterlineOverlay", () => {
           updateFailure: undefined
         }}
         onNavigate={vi.fn()}
-        viewingGemini
+        geminiCardTitle="Gemini 号池"
         geminiNow={new Date("2026-10-04T04:40:00.000Z")}
         pageCount={2}
         geminiReading={{
@@ -195,7 +195,7 @@ describe("WaterlineOverlay", () => {
 
     const vessel = screen.getByLabelText("Gemini 5 小时限额和周限额的剩余水位");
 
-    expect(screen.getByText("Gemini")).toBeTruthy();
+    expect(screen.getByText("Gemini 号池")).toBeTruthy();
     expect(vessel.textContent).toContain("5小时");
     expect(vessel.textContent).toContain("48.9%");
     expect(vessel.textContent).toContain("90.8%");

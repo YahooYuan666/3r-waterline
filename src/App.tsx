@@ -27,13 +27,17 @@ import {
 } from "./domain/edge-hide";
 import { clampWindowPosition, fitWindowSize, resolveTrafficOverlayHeight } from "./domain/window-geometry";
 import {
+  accountShortName,
+  aggregateGeminiPool,
   formatRemainingPercent,
-  loadGeminiReading,
+  loadGeminiPool,
   queryAgeLabel,
   readingHasWindows,
   resetCountdown,
-  saveGeminiReading,
+  saveGeminiPool,
+  SHOW_INDIVIDUAL_GEMINI_KEY,
   SITE_KEY,
+  type AccountGeminiReading,
   type AntigravityReading,
   type GeminiWindow
 } from "./domain/antigravity";
@@ -210,7 +214,7 @@ interface WaterlineOverlayProps {
   autoCycleIntervalMs?: number;
   loginError?: string;
   onRetry?: () => void;
-  viewingGemini?: boolean;
+  geminiCardTitle?: string;
   geminiReading?: AntigravityReading | null;
   geminiNow?: Date;
   pageCount?: number;
@@ -234,11 +238,12 @@ export function WaterlineOverlay({
   onEdgeMouseEnter,
   loginError,
   onRetry,
-  viewingGemini = false,
+  geminiCardTitle,
   geminiReading = null,
   geminiNow,
   pageCount
 }: WaterlineOverlayProps) {
+  const viewingGemini = Boolean(geminiCardTitle);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number }>();
   const supportedSubscriptions = state.subscriptions.filter(
     (subscription): subscription is SupportedSubscription => subscription.status === "supported"
@@ -321,7 +326,7 @@ export function WaterlineOverlay({
         ) : (
           <>
             <SubscriptionHeader
-              name={viewingGemini ? "Gemini" : selectedSubscription?.name}
+              name={geminiCardTitle ?? selectedSubscription?.name}
               showNavigation={(pageCount ?? supportedSubscriptions.length) > 1}
               onNavigate={onNavigate}
             />
@@ -762,9 +767,12 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [site, setSite] = useState(() => localStorage.getItem(SITE_KEY) ?? "");
-  const [viewingGemini, setViewingGemini] = useState(false);
-  const [geminiReading, setGeminiReading] = useState<AntigravityReading | null>(() => loadGeminiReading());
-  const [googleSignedIn, setGoogleSignedIn] = useState(false);
+  const [activeGeminiPageId, setActiveGeminiPageId] = useState<string | null>(null);
+  const [geminiPool, setGeminiPool] = useState<AccountGeminiReading[]>(() => loadGeminiPool());
+  const [googleAccounts, setGoogleAccounts] = useState<Array<{ id: string; email: string }>>([]);
+  const [showIndividualGemini, setShowIndividualGemini] = useState(() =>
+    readBooleanPreference(SHOW_INDIVIDUAL_GEMINI_KEY, true)
+  );
   const [geminiNow, setGeminiNow] = useState(() => new Date());
   const geminiBusyRef = useRef(false);
   const [loginBusy, setLoginBusy] = useState(false);
@@ -807,6 +815,10 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(AUTO_CYCLE_KEY, String(autoCycleIntervalMs));
   }, [autoCycleIntervalMs]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SHOW_INDIVIDUAL_GEMINI_KEY, String(showIndividualGemini));
+  }, [showIndividualGemini]);
 
   const resizeOverlay = useCallback(async (mode: DisplayMode, scale: UiScale = uiScale) => {
     if (!nativeRuntime) {
@@ -1243,88 +1255,185 @@ export default function App() {
     }
   }, [displayMode, email, loginBusy, monitor, nativeRuntime, password, resizeOverlay, site]);
 
+  const handleRemoveGoogleAccount = useCallback(
+    async (accountId: string) => {
+      if (!nativeRuntime) {
+        return;
+      }
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("remove_google_account", { accountId });
+        setGoogleAccounts((prev) => prev.filter((acc) => acc.id !== accountId));
+        setGeminiPool((prev) => {
+          const updated = prev.filter((acc) => acc.id !== accountId);
+          saveGeminiPool(updated);
+          return updated;
+        });
+      } catch (err) {
+        console.error("Failed to remove Google account", err);
+      }
+    },
+    [nativeRuntime]
+  );
+
   const retryConnection = useCallback(() => {
     void monitor.refresh();
   }, [monitor]);
 
-  const showGemini = googleSignedIn || geminiReading != null;
-  const selectAdjacentPage = useCallback((offset: -1 | 1) => {
-    const supported = monitor.getState().subscriptions.filter((subscription) => subscription.status === "supported");
-    const ids = [...supported.map((subscription) => subscription.id), ...(showGemini ? ["gemini"] : [])];
+  const hasGeminiData = googleAccounts.length > 0 || geminiPool.length > 0;
+  const poolReading = useMemo(
+    () => aggregateGeminiPool(geminiPool, geminiNow),
+    [geminiPool, geminiNow]
+  );
 
-    if (ids.length < 2) {
-      return;
-    }
+  const availablePages = useMemo(() => {
+    const supported = monitor
+      .getState()
+      .subscriptions.filter((subscription) => subscription.status === "supported");
+    const pages: Array<{
+      id: string;
+      type: "3r" | "gemini-pool" | "gemini-account";
+      geminiCardTitle?: string;
+      geminiReading?: AntigravityReading | null;
+    }> = supported.map((sub) => ({ id: sub.id, type: "3r" }));
 
-    const current = viewingGemini ? "gemini" : monitor.getState().selectedSubscriptionId;
-    const currentIndex = Math.max(0, ids.indexOf(current ?? ""));
-    const next = ids[(currentIndex + offset + ids.length) % ids.length];
+    if (hasGeminiData) {
+      pages.push({
+        id: "gemini-pool",
+        type: "gemini-pool",
+        geminiCardTitle: "Gemini 号池",
+        geminiReading: poolReading
+      });
 
-    if (next === "gemini") {
-      setViewingGemini(true);
-      return;
-    }
-
-    setViewingGemini(false);
-    monitor.selectSupportedSubscription(next);
-  }, [monitor, showGemini, viewingGemini]);
-  const selectAdjacentPageRef = useRef(selectAdjacentPage);
-  selectAdjacentPageRef.current = selectAdjacentPage;
-
-  const rememberGemini = useCallback((reading: AntigravityReading | null) => {
-    setGeminiReading(reading);
-    saveGeminiReading(reading);
-  }, []);
-
-  const runGeminiAction = useCallback(async (action: "login" | "query") => {
-    if (!nativeRuntime || geminiBusyRef.current) {
-      return;
-    }
-
-    geminiBusyRef.current = true;
-    setViewingGemini(true);
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-
-      if (action === "login") {
-        const result = await invoke<{ auto_start_enabled: boolean }>("login_google");
-        setGoogleSignedIn(true);
-        setAutoStartEnabled(result.auto_start_enabled);
-        if (!result.auto_start_enabled) {
-          setAutoStartError("Google 登录成功，但无法启用开机自动启动");
+      if (showIndividualGemini && geminiPool.length > 0) {
+        for (const acc of geminiPool) {
+          pages.push({
+            id: `gemini-acc-${acc.id}`,
+            type: "gemini-account",
+            geminiCardTitle: `Gemini (${accountShortName(acc.email)})`,
+            geminiReading: acc
+          });
         }
+      }
+    }
+
+    return pages;
+  }, [hasGeminiData, geminiPool, monitor, poolReading, showIndividualGemini]);
+
+  const currentPage = useMemo(() => {
+    if (activeGeminiPageId != null) {
+      const match = availablePages.find((p) => p.id === activeGeminiPageId);
+      if (match) {
+        return match;
+      }
+    }
+    const current3r = availablePages.find((p) => p.id === monitor.getState().selectedSubscriptionId);
+    return current3r ?? availablePages[0];
+  }, [activeGeminiPageId, availablePages, monitor]);
+
+  const selectAdjacentPage = useCallback(
+    (offset: -1 | 1) => {
+      if (availablePages.length < 2) {
         return;
       }
 
-      const quota = await invoke<{ fiveHour?: GeminiWindow; weekly?: GeminiWindow }>("query_gemini_quota");
-      if (quota.fiveHour == null && quota.weekly == null) {
-        throw new Error("没有返回 Gemini 额度");
+      const currentIndex = Math.max(
+        0,
+        availablePages.findIndex((p) => p.id === currentPage?.id)
+      );
+      const next = availablePages[(currentIndex + offset + availablePages.length) % availablePages.length];
+
+      if (next.type === "3r") {
+        setActiveGeminiPageId(null);
+        monitor.selectSupportedSubscription(next.id);
+      } else {
+        setActiveGeminiPageId(next.id);
       }
-      rememberGemini({
-        queriedAt: new Date().toISOString(),
-        ...(quota.fiveHour ? { fiveHour: quota.fiveHour } : {}),
-        ...(quota.weekly ? { weekly: quota.weekly } : {})
-      });
-      setGeminiNow(new Date());
-    } catch (error) {
-      const message = typeof error === "string" ? error : error instanceof Error ? error.message : "Gemini 请求失败";
-      if (message === "AUTHENTICATION_REQUIRED") {
-        setGoogleSignedIn(false);
+    },
+    [availablePages, currentPage, monitor]
+  );
+  const selectAdjacentPageRef = useRef(selectAdjacentPage);
+  selectAdjacentPageRef.current = selectAdjacentPage;
+
+  const runGeminiAction = useCallback(
+    async (action: "login" | "query") => {
+      if (!nativeRuntime || geminiBusyRef.current) {
+        return;
       }
-      setGeminiReading((current) => {
-        const next = {
-          queriedAt: current?.queriedAt ?? "",
-          ...(current?.fiveHour ? { fiveHour: current.fiveHour } : {}),
-          ...(current?.weekly ? { weekly: current.weekly } : {}),
-          failure: message === "AUTHENTICATION_REQUIRED" ? "Google 登录已过期，请重新登录" : message
-        };
-        saveGeminiReading(next);
-        return next;
-      });
-    } finally {
-      geminiBusyRef.current = false;
-    }
-  }, [nativeRuntime, rememberGemini]);
+
+      geminiBusyRef.current = true;
+      setActiveGeminiPageId("gemini-pool");
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+
+        if (action === "login") {
+          const result = await invoke<{ auto_start_enabled: boolean }>("login_google");
+          const status = await invoke<{ signedIn: boolean; accounts: Array<{ id: string; email: string }> }>(
+            "google_login_status"
+          );
+          setGoogleAccounts(status.accounts);
+          setAutoStartEnabled(result.auto_start_enabled);
+          if (!result.auto_start_enabled) {
+            setAutoStartError("Google 登录成功，但无法启用开机自动启动");
+          }
+          // Query right after adding account
+          action = "query";
+        }
+
+        if (action === "query") {
+          const quotaList = await invoke<
+            Array<{
+              id: string;
+              email: string;
+              fiveHour?: GeminiWindow;
+              weekly?: GeminiWindow;
+              error?: string;
+            }>
+          >("query_gemini_quota");
+
+          setGeminiPool((currentPool) => {
+            const nextMap = new Map<string, AccountGeminiReading>();
+            for (const item of currentPool) {
+              nextMap.set(item.id, item);
+            }
+            const queryTime = new Date().toISOString();
+            for (const q of quotaList) {
+              const existing = nextMap.get(q.id);
+              nextMap.set(q.id, {
+                id: q.id,
+                email: q.email || existing?.email || "Google 账号",
+                queriedAt: queryTime,
+                fiveHour: q.fiveHour ?? existing?.fiveHour,
+                weekly: q.weekly ?? existing?.weekly,
+                failure: q.error
+              });
+            }
+            const nextList = Array.from(nextMap.values());
+            saveGeminiPool(nextList);
+            return nextList;
+          });
+          setGeminiNow(new Date());
+        }
+      } catch (error) {
+        const message =
+          typeof error === "string" ? error : error instanceof Error ? error.message : "Gemini 请求失败";
+        if (message === "AUTHENTICATION_REQUIRED") {
+          setGoogleAccounts([]);
+        }
+        setGeminiPool((currentPool) => {
+          const nextList = currentPool.map((acc) => ({
+            ...acc,
+            failure: message === "AUTHENTICATION_REQUIRED" ? "Google 登录已过期，请重新登录" : message
+          }));
+          saveGeminiPool(nextList);
+          return nextList;
+        });
+      } finally {
+        geminiBusyRef.current = false;
+      }
+    },
+    [nativeRuntime]
+  );
 
   useEffect(() => {
     const unsubscribe = monitor.subscribe(setState);
@@ -1374,13 +1483,13 @@ export default function App() {
         const [enabled, rememberedSite, google] = await Promise.all([
           invoke<boolean>("auto_start_enabled"),
           invoke<string | null>("remembered_site"),
-          invoke<{ signedIn: boolean }>("google_login_status")
+          invoke<{ signedIn: boolean; accounts: Array<{ id: string; email: string }> }>("google_login_status")
         ]);
         if (disposed) {
           return;
         }
         setAutoStartEnabled(enabled);
-        setGoogleSignedIn(google.signedIn);
+        setGoogleAccounts(google.accounts || []);
         if (rememberedSite) {
           localStorage.setItem(SITE_KEY, rememberedSite);
           setSite(rememberedSite);
@@ -1521,10 +1630,10 @@ export default function App() {
         edgeHideEdge={edgeHideEdge}
         loginError={loginError}
         onRetry={nativeRuntime ? retryConnection : undefined}
-        viewingGemini={viewingGemini && showGemini}
-        geminiReading={geminiReading}
+        geminiCardTitle={currentPage?.geminiCardTitle}
+        geminiReading={currentPage?.geminiReading}
         geminiNow={geminiNow}
-        pageCount={state.subscriptions.filter((subscription) => subscription.status === "supported").length + (showGemini ? 1 : 0)}
+        pageCount={availablePages.length}
       />
       {nativeRuntime && loginOpen && (
         <div className="login-backdrop" role="presentation">
@@ -1667,20 +1776,62 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <button
-              type="button"
-              className="settings-secondary"
-              disabled={!googleSignedIn}
-              onClick={async () => {
-                const { invoke } = await import("@tauri-apps/api/core");
-                await invoke("sign_out_google");
-                setGoogleSignedIn(false);
-                rememberGemini(null);
-                setViewingGemini(false);
-              }}
-            >
-              退出 Google
-            </button>
+            <label className="settings-toggle">
+              <span>显示单个 Gemini 账号</span>
+              <input
+                type="checkbox"
+                checked={showIndividualGemini}
+                onChange={(event) => setShowIndividualGemini(event.target.checked)}
+              />
+            </label>
+            <div className="settings-accounts-section">
+              <div className="settings-accounts-header">
+                <span>Google 账号号池 ({googleAccounts.length})</span>
+                <button
+                  type="button"
+                  className="settings-action-btn"
+                  onClick={() => void runGeminiAction("login")}
+                >
+                  添加账号
+                </button>
+              </div>
+              {googleAccounts.length > 0 ? (
+                <div className="settings-accounts-list">
+                  {googleAccounts.map((acc) => (
+                    <div key={acc.id} className="settings-account-item">
+                      <span className="settings-account-email" title={acc.email}>
+                        {acc.email}
+                      </span>
+                      <button
+                        type="button"
+                        className="settings-remove-btn"
+                        onClick={() => void handleRemoveGoogleAccount(acc.id)}
+                      >
+                        移除
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="settings-hint">未登录 Google 账号</p>
+              )}
+            </div>
+            {googleAccounts.length > 0 && (
+              <button
+                type="button"
+                className="settings-secondary"
+                onClick={async () => {
+                  const { invoke } = await import("@tauri-apps/api/core");
+                  await invoke("sign_out_google");
+                  setGoogleAccounts([]);
+                  setGeminiPool([]);
+                  saveGeminiPool([]);
+                  setActiveGeminiPageId(null);
+                }}
+              >
+                退出全部 Google 账号
+              </button>
+            )}
             <button
               type="button"
               className="settings-danger"
@@ -1693,9 +1844,10 @@ export default function App() {
                 }
                 localStorage.removeItem(SITE_KEY);
                 setSite("");
-                setGoogleSignedIn(false);
-                rememberGemini(null);
-                setViewingGemini(false);
+                setGoogleAccounts([]);
+                setGeminiPool([]);
+                saveGeminiPool([]);
+                setActiveGeminiPageId(null);
                 monitor.reset();
                 await closeSettings();
                 await monitor.refresh();

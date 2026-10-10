@@ -70,10 +70,31 @@ pub fn gemini_busy() -> bool {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-struct GoogleSession {
+pub struct GoogleAccount {
+    pub id: String,
+    pub email: String,
+    pub refresh_token: String,
+    pub access_token: String,
+    pub expires_at: i64,
+}
+
+#[derive(Clone, Default, Deserialize, Serialize)]
+struct GoogleAccountPool {
+    accounts: Vec<GoogleAccount>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+struct LegacyGoogleSession {
     refresh_token: String,
     access_token: String,
     expires_at: i64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleAccountInfo {
+    pub id: String,
+    pub email: String,
 }
 
 #[derive(Serialize)]
@@ -86,17 +107,23 @@ pub struct GeminiWindow {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GeminiQueryResult {
+pub struct GeminiAccountQueryResult {
+    pub id: String,
+    pub email: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub five_hour: Option<GeminiWindow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub weekly: Option<GeminiWindow>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GoogleStatus {
     pub signed_in: bool,
+    pub account_count: usize,
+    pub accounts: Vec<GoogleAccountInfo>,
 }
 
 pub fn normalize_site(raw: &str) -> Result<String, String> {
@@ -126,21 +153,33 @@ pub fn api_base(site: &str) -> String {
 }
 
 pub fn google_signed_in() -> bool {
-    load_google_session()
-        .is_some_and(|session| !session.refresh_token.trim().is_empty())
+    let pool = load_google_pool();
+    !pool.accounts.is_empty()
 }
 
 pub fn google_status() -> GoogleStatus {
+    let pool = load_google_pool();
+    let accounts: Vec<GoogleAccountInfo> = pool
+        .accounts
+        .iter()
+        .map(|acc| GoogleAccountInfo {
+            id: acc.id.clone(),
+            email: acc.email.clone(),
+        })
+        .collect();
     GoogleStatus {
-        signed_in: google_signed_in(),
+        signed_in: !accounts.is_empty(),
+        account_count: accounts.len(),
+        accounts,
     }
 }
 
 pub fn gemini_menu_label() -> &'static str {
-    if google_signed_in() {
-        "查询 Gemini 额度"
-    } else {
+    let pool = load_google_pool();
+    if pool.accounts.is_empty() {
         "登录 Google"
+    } else {
+        "查询 Gemini 号池额度"
     }
 }
 
@@ -148,6 +187,90 @@ pub fn clear_google_session() {
     if let Ok(entry) = google_entry() {
         let _ = entry.delete_credential();
     }
+}
+
+pub fn remove_google_account(account_id: &str) -> Result<(), String> {
+    let mut pool = load_google_pool();
+    pool.accounts.retain(|acc| acc.id != account_id && acc.email != account_id);
+    if pool.accounts.is_empty() {
+        clear_google_session();
+    } else {
+        save_google_pool(&pool)?;
+    }
+    Ok(())
+}
+
+fn google_entry() -> Result<Entry, String> {
+    Entry::new(KEYRING_SERVICE, GOOGLE_ACCOUNT).map_err(|error| format!("无法访问系统安全存储: {error}"))
+}
+
+fn load_google_pool() -> GoogleAccountPool {
+    let Ok(entry) = google_entry() else {
+        return GoogleAccountPool::default();
+    };
+    let Ok(serialized) = entry.get_password() else {
+        return GoogleAccountPool::default();
+    };
+
+    if let Ok(pool) = serde_json::from_str::<GoogleAccountPool>(&serialized) {
+        return pool;
+    }
+
+    // Migration from legacy single session
+    if let Ok(legacy) = serde_json::from_str::<LegacyGoogleSession>(&serialized) {
+        if !legacy.refresh_token.trim().is_empty() {
+            return GoogleAccountPool {
+                accounts: vec![GoogleAccount {
+                    id: "default".to_string(),
+                    email: "Google 账号".to_string(),
+                    refresh_token: legacy.refresh_token,
+                    access_token: legacy.access_token,
+                    expires_at: legacy.expires_at,
+                }],
+            };
+        }
+    }
+
+    GoogleAccountPool::default()
+}
+
+fn save_google_pool(pool: &GoogleAccountPool) -> Result<(), String> {
+    let entry = google_entry()?;
+    let serialized = serde_json::to_string(pool).map_err(|error| error.to_string())?;
+    entry
+        .set_password(&serialized)
+        .map_err(|error| format!("无法写入系统安全存储: {error}"))
+}
+
+async fn fetch_user_info(client: &Client, access_token: &str) -> (String, String) {
+    let response = client
+        .get("https://www.googleapis.com/oauth2/v2/userinfo")
+        .bearer_auth(access_token)
+        .send()
+        .await;
+
+    if let Ok(resp) = response {
+        if let Ok(val) = resp.json::<Value>().await {
+            let email = val
+                .get("email")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let id = val
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if !email.is_empty() {
+                let id = if id.is_empty() { email.clone() } else { id };
+                return (id, email);
+            }
+        }
+    }
+
+    ("default".to_string(), "Google 账号".to_string())
 }
 
 pub async fn login_google() -> Result<(), String> {
@@ -200,76 +323,135 @@ pub async fn login_google() -> Result<(), String> {
     );
     let _ = stream.write_all(response.as_bytes());
     let code = code?;
-    let session = exchange_authorization_code(&code, &redirect_uri).await?;
-    save_google_session(&session)
-}
+    let raw_session = exchange_authorization_code(&code, &redirect_uri).await?;
+    let client = http_client()?;
+    let (id, email) = fetch_user_info(&client, &raw_session.access_token).await;
 
-pub async fn query_gemini() -> Result<GeminiQueryResult, String> {
-    let _busy = GeminiBusyGuard::try_acquire()?;
-    let mut session = load_google_session().ok_or_else(|| "AUTHENTICATION_REQUIRED".to_string())?;
-    if session.expires_at <= Utc::now().timestamp() + 60 {
-        session = match refresh_google_session(&session).await {
-            Ok(refreshed) => refreshed,
-            Err(error) => {
-                if error == "AUTHENTICATION_REQUIRED" {
-                    clear_google_session();
-                }
-                return Err(error);
-            }
-        };
-        save_google_session(&session)?;
+    let mut pool = load_google_pool();
+    if let Some(existing) = pool.accounts.iter_mut().find(|a| a.id == id || a.email == email) {
+        existing.id = id;
+        existing.email = email;
+        existing.refresh_token = raw_session.refresh_token;
+        existing.access_token = raw_session.access_token;
+        existing.expires_at = raw_session.expires_at;
+    } else {
+        pool.accounts.push(GoogleAccount {
+            id,
+            email,
+            refresh_token: raw_session.refresh_token,
+            access_token: raw_session.access_token,
+            expires_at: raw_session.expires_at,
+        });
     }
 
-    let client = http_client()?;
+    save_google_pool(&pool)
+}
+
+async fn query_single_account(
+    client: &Client,
+    account: &mut GoogleAccount,
+) -> Result<GeminiAccountQueryResult, (String, bool)> {
+    if account.expires_at <= Utc::now().timestamp() + 60 {
+        match refresh_google_session(client, &account.refresh_token).await {
+            Ok((new_token, expires_in)) => {
+                account.access_token = new_token;
+                account.expires_at = Utc::now().timestamp() + expires_in;
+            }
+            Err(e) if e == "AUTHENTICATION_REQUIRED" => {
+                return Err(("Google 登录已失效，请重新登录".to_string(), true));
+            }
+            Err(e) => {
+                return Err((e, false));
+            }
+        }
+    }
+
     let response = client
         .post(QUOTA_URL)
-        .bearer_auth(&session.access_token)
+        .bearer_auth(&account.access_token)
         .header("User-Agent", QUOTA_USER_AGENT)
         .json(&serde_json::json!({}))
         .send()
         .await
-        .map_err(|_| "无法连接 Google，请确认梯子已接管系统代理".to_string())?;
+        .map_err(|_| ("无法连接 Google，请确认梯子已接管系统代理".to_string(), false))?;
+
     let status = response.status();
     let body = response
         .text()
         .await
-        .map_err(|_| "Google 额度响应无法读取".to_string())?;
+        .map_err(|_| ("Google 额度响应无法读取".to_string(), false))?;
+
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        return Err(("Google 登录已失效，请重新登录".to_string(), true));
+    }
+    if !status.is_success() {
+        return Err(("Google 额度查询失败".to_string(), false));
+    }
+
+    let value: Value = serde_json::from_str(&body)
+        .map_err(|_| ("Google 额度响应不是有效 JSON".to_string(), false))?;
+    let (five_hour, weekly) = extract_gemini_windows(&value);
+    if five_hour.is_none() && weekly.is_none() {
+        return Err(("没有返回 Gemini 额度".to_string(), false));
+    }
+
+    Ok(GeminiAccountQueryResult {
+        id: account.id.clone(),
+        email: account.email.clone(),
+        five_hour,
+        weekly,
+        error: None,
+    })
+}
+
+pub async fn query_gemini() -> Result<Vec<GeminiAccountQueryResult>, String> {
+    let _busy = GeminiBusyGuard::try_acquire()?;
+    let mut pool = load_google_pool();
+    if pool.accounts.is_empty() {
+        return Err("AUTHENTICATION_REQUIRED".to_string());
+    }
+
+    let client = http_client()?;
+    let mut results = Vec::new();
+    let mut expired_ids = Vec::new();
+
+    for account in &mut pool.accounts {
+        match query_single_account(&client, account).await {
+            Ok(res) => results.push(res),
+            Err((err_msg, is_auth_expired)) => {
+                if is_auth_expired {
+                    expired_ids.push(account.id.clone());
+                }
+                results.push(GeminiAccountQueryResult {
+                    id: account.id.clone(),
+                    email: account.email.clone(),
+                    five_hour: None,
+                    weekly: None,
+                    error: Some(err_msg),
+                });
+            }
+        }
+    }
+
+    // Persist refreshed tokens
+    let _ = save_google_pool(&pool);
+
+    // If all failed with auth error, return error
+    if !expired_ids.is_empty() && expired_ids.len() == pool.accounts.len() {
         clear_google_session();
         return Err("AUTHENTICATION_REQUIRED".to_string());
     }
-    if !status.is_success() {
-        return Err("Google 额度查询失败".to_string());
-    }
 
-    let value: Value = serde_json::from_str(&body).map_err(|_| "Google 额度响应不是有效 JSON".to_string())?;
-    let result = extract_gemini_windows(&value);
-    if result.five_hour.is_none() && result.weekly.is_none() {
-        return Err("没有返回 Gemini 额度".to_string());
-    }
-
-    Ok(result)
+    Ok(results)
 }
 
-fn google_entry() -> Result<Entry, String> {
-    Entry::new(KEYRING_SERVICE, GOOGLE_ACCOUNT).map_err(|error| format!("无法访问系统安全存储: {error}"))
+struct RawTokenResponse {
+    refresh_token: String,
+    access_token: String,
+    expires_at: i64,
 }
 
-fn load_google_session() -> Option<GoogleSession> {
-    let entry = google_entry().ok()?;
-    let serialized = entry.get_password().ok()?;
-    serde_json::from_str(&serialized).ok()
-}
-
-fn save_google_session(session: &GoogleSession) -> Result<(), String> {
-    let entry = google_entry()?;
-    let serialized = serde_json::to_string(session).map_err(|error| error.to_string())?;
-    entry
-        .set_password(&serialized)
-        .map_err(|error| format!("无法写入系统安全存储: {error}"))
-}
-
-async fn exchange_authorization_code(code: &str, redirect_uri: &str) -> Result<GoogleSession, String> {
+async fn exchange_authorization_code(code: &str, redirect_uri: &str) -> Result<RawTokenResponse, String> {
     let client = http_client()?;
     let client_id = google_client_id();
     let client_secret = google_client_secret();
@@ -290,11 +472,15 @@ async fn exchange_authorization_code(code: &str, redirect_uri: &str) -> Result<G
         .json::<Value>()
         .await
         .map_err(|_| "Google 登录响应不是有效 JSON".to_string())?;
-    google_session_from_token(&body, None)
+    let (access_token, refresh_token, expires_in) = parse_token_response(&body, None)?;
+    Ok(RawTokenResponse {
+        refresh_token,
+        access_token,
+        expires_at: Utc::now().timestamp() + expires_in,
+    })
 }
 
-async fn refresh_google_session(session: &GoogleSession) -> Result<GoogleSession, String> {
-    let client = http_client()?;
+async fn refresh_google_session(client: &Client, refresh_token: &str) -> Result<(String, i64), String> {
     let client_id = google_client_id();
     let client_secret = google_client_secret();
     let response = client
@@ -303,7 +489,7 @@ async fn refresh_google_session(session: &GoogleSession) -> Result<GoogleSession
         .body(form_encode(&[
             ("client_id", client_id.as_str()),
             ("client_secret", client_secret.as_str()),
-            ("refresh_token", session.refresh_token.as_str()),
+            ("refresh_token", refresh_token),
             ("grant_type", "refresh_token"),
         ]))
         .send()
@@ -321,10 +507,11 @@ async fn refresh_google_session(session: &GoogleSession) -> Result<GoogleSession
         return Err("Google 登录已失效，请重新登录".to_string());
     }
 
-    google_session_from_token(&body, Some(session.refresh_token.as_str()))
+    let (access_token, _, expires_in) = parse_token_response(&body, Some(refresh_token))?;
+    Ok((access_token, expires_in))
 }
 
-fn google_session_from_token(body: &Value, previous_refresh_token: Option<&str>) -> Result<GoogleSession, String> {
+fn parse_token_response(body: &Value, previous_refresh_token: Option<&str>) -> Result<(String, String, i64), String> {
     if body.get("error").and_then(Value::as_str).is_some() {
         return Err("Google 登录未完成".to_string());
     }
@@ -343,14 +530,10 @@ fn google_session_from_token(body: &Value, previous_refresh_token: Option<&str>)
         .ok_or_else(|| "Google 登录响应中没有刷新令牌".to_string())?;
     let expires_in = body.get("expires_in").and_then(Value::as_i64).unwrap_or(3600);
 
-    Ok(GoogleSession {
-        refresh_token,
-        access_token,
-        expires_at: Utc::now().timestamp() + expires_in,
-    })
+    Ok((access_token, refresh_token, expires_in))
 }
 
-fn extract_gemini_windows(value: &Value) -> GeminiQueryResult {
+fn extract_gemini_windows(value: &Value) -> (Option<GeminiWindow>, Option<GeminiWindow>) {
     let mut five_hour = None;
     let mut weekly = None;
     let groups = value.get("groups").and_then(Value::as_array);
@@ -370,7 +553,7 @@ fn extract_gemini_windows(value: &Value) -> GeminiQueryResult {
         }
     }
 
-    GeminiQueryResult { five_hour, weekly }
+    (five_hour, weekly)
 }
 
 fn gemini_window(bucket: &Value) -> Option<GeminiWindow> {
@@ -604,7 +787,7 @@ mod tests {
 
     #[test]
     fn keeps_only_the_two_gemini_windows() {
-        let result = extract_gemini_windows(&json!({
+        let (five_hour, weekly) = extract_gemini_windows(&json!({
             "groups": [
                 {
                     "buckets": [
@@ -621,18 +804,18 @@ mod tests {
             ]
         }));
 
-        assert_eq!(result.five_hour.unwrap().remaining_fraction, 1.0);
-        assert_eq!(result.weekly.unwrap().remaining_fraction, 0.9076349);
+        assert_eq!(five_hour.unwrap().remaining_fraction, 1.0);
+        assert_eq!(weekly.unwrap().remaining_fraction, 0.9076349);
     }
 
     #[test]
     fn reports_a_missing_gemini_window_without_inventing_it() {
-        let result = extract_gemini_windows(&json!({
+        let (five_hour, weekly) = extract_gemini_windows(&json!({
             "groups": [{ "buckets": [{ "bucketId": "gemini-weekly", "remainingFraction": 0.5, "resetTime": "2026-10-10T17:19:42Z" }] }]
         }));
 
-        assert!(result.five_hour.is_none());
-        assert!(result.weekly.is_some());
+        assert!(five_hour.is_none());
+        assert!(weekly.is_some());
     }
 }
 

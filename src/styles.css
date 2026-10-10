@@ -949,6 +949,85 @@ button:focus-visible {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.settings-accounts-section {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.settings-accounts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: #24292f;
+}
+
+.settings-action-btn {
+  padding: 2px 8px;
+  border: 1px solid #1a7f37;
+  border-radius: 4px;
+  color: #ffffff;
+  background: #1f883d;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-action-btn:hover {
+  background: #1a7f37;
+}
+
+.settings-accounts-list {
+  display: grid;
+  gap: 4px;
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+.settings-account-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #f6f8fa;
+  font-size: 11px;
+}
+
+.settings-account-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #3c4043;
+}
+
+.settings-remove-btn {
+  padding: 1px 6px;
+  border: 1px solid #cf222e;
+  border-radius: 3px;
+  color: #cf222e;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-remove-btn:hover {
+  color: #ffffff;
+  background: #cf222e;
+}
+
+.settings-hint {
+  margin: 2px 0;
+  color: #57606a;
+  font-size: 11px;
+}
+
 .settings-secondary {
   min-height: 34px;
   border: 1px solid #8aa0b4;
@@ -1018,6 +1097,27 @@ button:focus-visible {
     border-color: #60788c;
     color: #d5e4ef;
     background: #243646;
+  }
+
+  .settings-accounts-section {
+    border-color: #44576a;
+    background: #0f1821;
+  }
+
+  .settings-accounts-header {
+    color: #eff5f9;
+  }
+
+  .settings-account-item {
+    background: #1a2530;
+  }
+
+  .settings-account-email {
+    color: #d7e1e8;
+  }
+
+  .settings-hint {
+    color: #8c9ba5;
   }
 
   .settings-danger {

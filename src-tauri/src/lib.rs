@@ -18,7 +18,7 @@ mod antigravity;
 use antigravity::{
     api_base, clear_google_session, gemini_busy, gemini_menu_label, google_signed_in,
     google_status, login_google as complete_google_login, normalize_site, query_gemini,
-    GoogleStatus,
+    remove_google_account as do_remove_google_account, GoogleStatus,
 };
 
 const KEYRING_SERVICE: &str = "com.threercd.waterline";
@@ -618,10 +618,17 @@ async fn login_google(app: tauri::AppHandle) -> Result<LoginResult, String> {
 }
 
 #[tauri::command]
-async fn query_gemini_quota(app: tauri::AppHandle) -> Result<antigravity::GeminiQueryResult, String> {
+async fn query_gemini_quota(app: tauri::AppHandle) -> Result<Vec<antigravity::GeminiAccountQueryResult>, String> {
     let result = query_gemini().await;
     sync_gemini_menu_item(&app);
     result
+}
+
+#[tauri::command]
+fn remove_google_account(account_id: String, app: tauri::AppHandle) -> Result<(), String> {
+    do_remove_google_account(&account_id)?;
+    sync_gemini_menu_item(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -657,6 +664,13 @@ fn handle_menu_action<R: Runtime>(app: &AppHandle<R>, id: &str) {
             let action = if google_signed_in() { "query" } else { "login" };
             emit_to_main_overlay(app, "gemini-menu-action", action);
         }
+        "add-gemini" | "overlay-add-gemini" => {
+            if gemini_busy() {
+                return;
+            }
+            restore_main_overlay(app);
+            emit_to_main_overlay(app, "gemini-menu-action", "login");
+        }
         _ => {}
     }
 }
@@ -677,6 +691,7 @@ struct GeminiMenuSlot(Mutex<tauri::menu::MenuItem<tauri::Wry>>);
 #[tauri::command]
 fn show_overlay_context_menu(window: WebviewWindow) -> Result<(), String> {
     let app = window.app_handle();
+    let is_signed_in = google_signed_in();
     let gemini = MenuItem::with_id(
         app,
         "overlay-query-gemini",
@@ -685,6 +700,20 @@ fn show_overlay_context_menu(window: WebviewWindow) -> Result<(), String> {
         None::<&str>,
     )
     .map_err(|error| format!("无法创建菜单: {error}"))?;
+    let add_gemini = if is_signed_in {
+        Some(
+            MenuItem::with_id(
+                app,
+                "overlay-add-gemini",
+                "添加 Google 账号",
+                !gemini_busy(),
+                None::<&str>,
+            )
+            .map_err(|error| format!("无法创建菜单: {error}"))?,
+        )
+    } else {
+        None
+    };
     let settings = MenuItem::with_id(app, "overlay-settings", "设置", true, None::<&str>)
         .map_err(|error| format!("无法创建菜单: {error}"))?;
     let vessel = MenuItem::with_id(
@@ -709,14 +738,16 @@ fn show_overlay_context_menu(window: WebviewWindow) -> Result<(), String> {
         .map_err(|error| format!("无法创建菜单: {error}"))?;
     let separator =
         PredefinedMenuItem::separator(app).map_err(|error| format!("无法创建菜单: {error}"))?;
-    let menu = Menu::with_items(
-        app,
-        &[
-            &gemini, &separator, &settings, &separator, &vessel, &traffic, &separator, &hide,
-            &quit,
-        ],
-    )
-    .map_err(|error| format!("无法创建菜单: {error}"))?;
+
+    let mut menu_items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![&gemini];
+    if let Some(ref add_item) = add_gemini {
+        menu_items.push(add_item);
+    }
+    menu_items.extend_from_slice(&[
+        &separator, &settings, &separator, &vessel, &traffic, &separator, &hide, &quit,
+    ]);
+
+    let menu = Menu::with_items(app, &menu_items).map_err(|error| format!("无法创建菜单: {error}"))?;
 
     window
         .popup_menu(&menu)
@@ -743,6 +774,7 @@ pub fn run() {
             google_login_status,
             login_google,
             query_gemini_quota,
+            remove_google_account,
             sign_out_google,
             auto_start_enabled,
             set_auto_start,
