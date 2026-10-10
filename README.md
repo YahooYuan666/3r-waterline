@@ -4,11 +4,11 @@
 
 ## 当前版本
 
-`v0.1.5` 提供 Windows 和 macOS 社区预览构建：
+`v0.1.6` 提供 Windows 和 macOS 社区预览构建：
 
-- `3R.Waterline_0.1.5_x64-setup.exe`：Windows 安装版（NSIS，推荐）。
+- `3R.Waterline_0.1.6_x64-setup.exe`：Windows 安装版（NSIS，推荐）。
 - `three_r_waterline.exe`：Windows 便携版，无需安装。
-- `3R.Waterline_0.1.5_universal.dmg`：macOS 通用安装镜像（Apple Silicon 与 Intel）。
+- `3R.Waterline_0.1.6_universal.dmg`：macOS 通用安装镜像（Apple Silicon 与 Intel）。
 - Windows 构建同时会生成 MSI；当前公开 Release 以 NSIS 安装版和便携版为主。
 
 ## 下载与安全提示
@@ -31,6 +31,8 @@
 - 圆形水瓶和 Traffic Monitor 两种悬浮显示模式。
 - 周额度使用绿色、月额度使用蓝色，金额直接显示在条/瓶上。
 - 支持多个订阅切换与自动轮换。
+- 可绑定多个 Google 账号，显示 Antigravity（Gemini）的 5 小时限额与周限额；号池页按各账号剩余比例的等权平均汇总，单账号卡片可在设置中隐藏。
+- Gemini 额度不自动刷新：先自行开启梯子，再从右键菜单主动查询一次；未查询时保留上一次结果并标注查询时间。
 - 开机自动启动；每次启动先读取一次最新额度，之后按不短于 5 分钟的间隔更新。
 - 拖动贴边后自动隐藏，鼠标移入把手恢复，离开后自动重新贴边；支持四个屏幕边缘。
 - Windows 系统托盘菜单、右键设置、界面大小和主题适配。
