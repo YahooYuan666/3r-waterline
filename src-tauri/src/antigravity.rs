@@ -3,11 +3,12 @@ use keyring::Entry;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc;
+use std::sync::{mpsc, Mutex, OnceLock};
 use std::time::Duration;
 
 const KEYRING_SERVICE: &str = "com.threercd.waterline";
@@ -74,8 +75,48 @@ pub struct GoogleAccount {
     pub id: String,
     pub email: String,
     pub refresh_token: String,
-    pub access_token: String,
-    pub expires_at: i64,
+    /// Only the refresh token is persisted. An access token is ~1.3k characters,
+    /// so storing one per account overflows the 2560-character Windows credential
+    /// blob after two accounts. It is re-derived from the refresh token instead.
+    #[serde(default, skip_serializing)]
+    access_token: String,
+    #[serde(default, skip_serializing)]
+    expires_at: i64,
+}
+
+#[derive(Clone)]
+struct CachedToken {
+    access_token: String,
+    expires_at: i64,
+}
+
+fn token_cache() -> &'static Mutex<HashMap<String, CachedToken>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, CachedToken>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn cache_token(account_id: &str, access_token: &str, expires_at: i64) {
+    if let Ok(mut cache) = token_cache().lock() {
+        cache.insert(
+            account_id.to_string(),
+            CachedToken {
+                access_token: access_token.to_string(),
+                expires_at,
+            },
+        );
+    }
+}
+
+fn forget_cached_token(account_id: &str) {
+    if let Ok(mut cache) = token_cache().lock() {
+        cache.remove(account_id);
+    }
+}
+
+fn forget_all_cached_tokens() {
+    if let Ok(mut cache) = token_cache().lock() {
+        cache.clear();
+    }
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -184,6 +225,7 @@ pub fn gemini_menu_label() -> &'static str {
 }
 
 pub fn clear_google_session() {
+    forget_all_cached_tokens();
     if let Ok(entry) = google_entry() {
         let _ = entry.delete_credential();
     }
@@ -191,6 +233,7 @@ pub fn clear_google_session() {
 
 pub fn remove_google_account(account_id: &str) -> Result<(), String> {
     let mut pool = load_google_pool();
+    forget_cached_token(account_id);
     pool.accounts.retain(|acc| acc.id != account_id && acc.email != account_id);
     if pool.accounts.is_empty() {
         clear_google_session();
@@ -326,49 +369,73 @@ pub async fn login_google() -> Result<(), String> {
     let raw_session = exchange_authorization_code(&code, &redirect_uri).await?;
     let client = http_client()?;
     let (id, email) = fetch_user_info(&client, &raw_session.access_token).await;
+    cache_token(&id, &raw_session.access_token, raw_session.expires_at);
 
     let mut pool = load_google_pool();
     if let Some(existing) = pool.accounts.iter_mut().find(|a| a.id == id || a.email == email) {
         existing.id = id;
         existing.email = email;
         existing.refresh_token = raw_session.refresh_token;
-        existing.access_token = raw_session.access_token;
-        existing.expires_at = raw_session.expires_at;
+        existing.access_token = String::new();
+        existing.expires_at = 0;
     } else {
         pool.accounts.push(GoogleAccount {
             id,
             email,
             refresh_token: raw_session.refresh_token,
-            access_token: raw_session.access_token,
-            expires_at: raw_session.expires_at,
+            access_token: String::new(),
+            expires_at: 0,
         });
     }
 
     save_google_pool(&pool)
 }
 
-async fn query_single_account(
+/// Resolves a usable access token for one account, refreshing it from the
+/// persisted refresh token when the cached copy is missing or nearly expired.
+async fn access_token_for(
     client: &Client,
-    account: &mut GoogleAccount,
-) -> Result<GeminiAccountQueryResult, (String, bool)> {
-    if account.expires_at <= Utc::now().timestamp() + 60 {
-        match refresh_google_session(client, &account.refresh_token).await {
-            Ok((new_token, expires_in)) => {
-                account.access_token = new_token;
-                account.expires_at = Utc::now().timestamp() + expires_in;
-            }
-            Err(e) if e == "AUTHENTICATION_REQUIRED" => {
-                return Err(("Google 登录已失效，请重新登录".to_string(), true));
-            }
-            Err(e) => {
-                return Err((e, false));
+    account: &GoogleAccount,
+) -> Result<String, (String, bool)> {
+    let now = Utc::now().timestamp();
+
+    if let Ok(cache) = token_cache().lock() {
+        if let Some(cached) = cache.get(&account.id) {
+            if cached.expires_at > now + 60 {
+                return Ok(cached.access_token.clone());
             }
         }
     }
 
+    // A pool saved by an older build may still carry a token inside the record.
+    if !account.access_token.is_empty() && account.expires_at > now + 60 {
+        cache_token(&account.id, &account.access_token, account.expires_at);
+        return Ok(account.access_token.clone());
+    }
+
+    match refresh_google_session(client, &account.refresh_token).await {
+        Ok((access_token, expires_in)) => {
+            let expires_at = Utc::now().timestamp() + expires_in;
+            cache_token(&account.id, &access_token, expires_at);
+            Ok(access_token)
+        }
+        Err(error) if error == "AUTHENTICATION_REQUIRED" => {
+            forget_cached_token(&account.id);
+            Err(("Google 登录已失效，请重新登录".to_string(), true))
+        }
+        Err(error) => Err((error, false)),
+    }
+}
+
+async fn query_single_account(
+    client: &Client,
+    account: &GoogleAccount,
+) -> Result<GeminiAccountQueryResult, (String, bool)> {
+    let access_token = access_token_for(client, account).await?;
+
     let response = client
         .post(QUOTA_URL)
-        .bearer_auth(&account.access_token)
+        .bearer_auth(&access_token)
         .header("User-Agent", QUOTA_USER_AGENT)
         .json(&serde_json::json!({}))
         .send()
@@ -406,7 +473,7 @@ async fn query_single_account(
 
 pub async fn query_gemini() -> Result<Vec<GeminiAccountQueryResult>, String> {
     let _busy = GeminiBusyGuard::try_acquire()?;
-    let mut pool = load_google_pool();
+    let pool = load_google_pool();
     if pool.accounts.is_empty() {
         return Err("AUTHENTICATION_REQUIRED".to_string());
     }
@@ -415,7 +482,13 @@ pub async fn query_gemini() -> Result<Vec<GeminiAccountQueryResult>, String> {
     let mut results = Vec::new();
     let mut expired_ids = Vec::new();
 
-    for account in &mut pool.accounts {
+    for (index, account) in pool.accounts.iter().enumerate() {
+        // Space out the per-account reads so a pool query does not look like a
+        // burst of unrelated calls to the same Google endpoint.
+        if index > 0 {
+            tokio::time::sleep(inter_account_delay()).await;
+        }
+
         match query_single_account(&client, account).await {
             Ok(res) => results.push(res),
             Err((err_msg, is_auth_expired)) => {
@@ -433,9 +506,6 @@ pub async fn query_gemini() -> Result<Vec<GeminiAccountQueryResult>, String> {
         }
     }
 
-    // Persist refreshed tokens
-    let _ = save_google_pool(&pool);
-
     // If all failed with auth error, return error
     if !expired_ids.is_empty() && expired_ids.len() == pool.accounts.len() {
         clear_google_session();
@@ -443,6 +513,12 @@ pub async fn query_gemini() -> Result<Vec<GeminiAccountQueryResult>, String> {
     }
 
     Ok(results)
+}
+
+fn inter_account_delay() -> Duration {
+    const MIN_DELAY_MS: u64 = 1_000;
+    const MAX_DELAY_MS: u64 = 5_000;
+    Duration::from_millis(rand::random_range(MIN_DELAY_MS..=MAX_DELAY_MS))
 }
 
 struct RawTokenResponse {
@@ -742,6 +818,68 @@ fn url_encode(value: &str) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_saved_pool_fits_the_windows_credential_blob() {
+        // Windows rejects a credential blob over 2560 characters. Storing one
+        // access token per account used to overflow that after two accounts, so
+        // the third sign-in silently failed to persist.
+        let pool = GoogleAccountPool {
+            accounts: (0..10)
+                .map(|index| GoogleAccount {
+                    id: format!("112233445566778899{index:02}"),
+                    email: format!("account.number.{index}@example.com"),
+                    refresh_token: format!(
+                        "1//0gLongRefreshTokenValueThatLooksRealisticForAccount{index:02}"
+                    ),
+                    access_token: String::new(),
+                    expires_at: 0,
+                })
+                .collect(),
+        };
+
+        let serialized = serde_json::to_string(&pool).expect("pool serializes");
+
+        assert!(
+            !serialized.contains("access_token"),
+            "access tokens must never reach the credential store"
+        );
+        assert!(
+            serialized.chars().count() < 2_560,
+            "pool of 10 accounts must stay under the credential limit, got {}",
+            serialized.chars().count()
+        );
+    }
+
+    #[test]
+    fn inter_account_delay_stays_between_one_and_five_seconds() {
+        for _ in 0..64 {
+            let millis = inter_account_delay().as_millis();
+            assert!((1_000..=5_000).contains(&millis), "delay out of range: {millis}ms");
+        }
+    }
+
+    #[test]
+    fn a_legacy_pool_entry_still_loads_and_drops_its_stored_token() {
+        let legacy = json!({
+            "accounts": [{
+                "id": "legacy-id",
+                "email": "legacy@example.com",
+                "refresh_token": "1//0gLegacyRefreshToken",
+                "access_token": "ya29.a-very-long-stale-access-token-value",
+                "expires_at": 4_102_444_800_i64
+            }]
+        })
+        .to_string();
+
+        let pool: GoogleAccountPool = serde_json::from_str(&legacy).expect("legacy pool parses");
+        assert_eq!(pool.accounts.len(), 1);
+        assert_eq!(pool.accounts[0].email, "legacy@example.com");
+
+        let reserialized = serde_json::to_string(&pool).expect("pool serializes");
+        assert!(!reserialized.contains("ya29.a-very-long-stale-access-token-value"));
+        assert!(!reserialized.contains("expires_at"));
+    }
 
     #[test]
     fn unmasks_client_credentials_correctly() {

@@ -4207,6 +4207,7 @@ version = "0.1.6"
 dependencies = [
  "chrono",
  "keyring",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",
@@ -4214,6 +4215,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-autostart",
  "tauri-plugin-single-instance",
+ "tokio",
  "windows-registry",
 ]
 
