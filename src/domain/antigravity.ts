@@ -16,6 +16,9 @@ export interface AccountGeminiReading {
   queriedAt: string;
   fiveHour?: GeminiWindow;
   weekly?: GeminiWindow;
+  /** Google answered and this account carries no quota: a real zero. */
+  noQuota?: string;
+  /** The read never reached Google: the quota is unknown. */
   failure?: string;
 }
 
@@ -85,8 +88,13 @@ export function accountShortName(email: string): string {
 }
 
 /**
- * Calculates equal-weighted average pool quota across all accounts.
- * Reset times take the earliest upcoming reset time among accounts.
+ * Calculates equal-weighted average pool quota across every account that
+ * reported quota for that window. An account with no quota for a window counts
+ * as 0 for that window — that is real data, not missing data. Only accounts
+ * whose read failed (network error, expired login) are left out, because for
+ * those the quota is unknown rather than zero.
+ *
+ * Reset times take the earliest upcoming reset time among reporting accounts.
  */
 export function aggregateGeminiPool(
   accounts: AccountGeminiReading[],
@@ -97,19 +105,21 @@ export function aggregateGeminiPool(
   }
 
   const fiveHourAccounts = accounts.filter(
-    (acc): acc is AccountGeminiReading & { fiveHour: GeminiWindow } => acc.fiveHour != null
+    (acc) => acc.fiveHour != null || !readFailed(acc)
   );
   const weeklyAccounts = accounts.filter(
-    (acc): acc is AccountGeminiReading & { weekly: GeminiWindow } => acc.weekly != null
+    (acc) => acc.weekly != null || !readFailed(acc)
   );
 
   let fiveHourWindow: GeminiWindow | undefined;
   if (fiveHourAccounts.length > 0) {
-    const total = fiveHourAccounts.reduce((sum, acc) => sum + acc.fiveHour.remainingFraction, 0);
+    const total = fiveHourAccounts.reduce(
+      (sum, acc) => sum + (acc.fiveHour?.remainingFraction ?? 0),
+      0
+    );
     const avgFraction = total / fiveHourAccounts.length;
-    // Earliest reset time
     const earliestReset = findEarliestResetTime(
-      fiveHourAccounts.map((acc) => acc.fiveHour.resetTime)
+      fiveHourAccounts.map((acc) => acc.fiveHour?.resetTime)
     );
     fiveHourWindow = {
       remainingFraction: avgFraction,
@@ -119,10 +129,13 @@ export function aggregateGeminiPool(
 
   let weeklyWindow: GeminiWindow | undefined;
   if (weeklyAccounts.length > 0) {
-    const total = weeklyAccounts.reduce((sum, acc) => sum + acc.weekly.remainingFraction, 0);
+    const total = weeklyAccounts.reduce(
+      (sum, acc) => sum + (acc.weekly?.remainingFraction ?? 0),
+      0
+    );
     const avgFraction = total / weeklyAccounts.length;
     const earliestReset = findEarliestResetTime(
-      weeklyAccounts.map((acc) => acc.weekly.resetTime)
+      weeklyAccounts.map((acc) => acc.weekly?.resetTime)
     );
     weeklyWindow = {
       remainingFraction: avgFraction,
@@ -137,7 +150,7 @@ export function aggregateGeminiPool(
   validTimes.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   const latestQueriedAt = validTimes[0] || new Date().toISOString();
 
-  // If no account returned valid windows, find common or first error
+  // Only surface a failure when no account produced any quota at all.
   let failure: string | undefined;
   if (fiveHourWindow == null && weeklyWindow == null) {
     const failedAccount = accounts.find((a) => a.failure);
@@ -146,10 +159,15 @@ export function aggregateGeminiPool(
 
   return {
     queriedAt: latestQueriedAt,
-    ...(fiveHourWindow ? { fiveHour: fiveHourWindow } : {}),
+    ...(fiveHourWindow ? { fiveHour: fiveHourWindow } : {})  ,
     ...(weeklyWindow ? { weekly: weeklyWindow } : {}) ,
     ...(failure ? { failure } : {})
   };
+}
+
+/** A read that never reached Google: the quota is unknown, not zero. */
+function readFailed(account: AccountGeminiReading) {
+  return account.fiveHour == null && account.weekly == null && account.noQuota == null;
 }
 
 function findEarliestResetTime(resetTimes: Array<string | undefined>): string | undefined {

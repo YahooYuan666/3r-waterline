@@ -72,6 +72,58 @@ describe("antigravity reading", () => {
     expect(pool?.queriedAt).toBe("2026-10-04T04:10:00.000Z");
   });
 
+  it("counts an account with no quota as zero rather than dropping it", () => {
+    const accounts: AccountGeminiReading[] = [
+      {
+        id: "acc1",
+        email: "user1@gmail.com",
+        queriedAt: "2026-10-04T04:00:00.000Z",
+        fiveHour: { remainingFraction: 0.4, resetTime: "2026-10-04T08:00:00.000Z" },
+        weekly: { remainingFraction: 0.8, resetTime: "2026-10-10T10:00:00.000Z" }
+      },
+      {
+        id: "acc2",
+        email: "user2@gmail.com",
+        queriedAt: "2026-10-04T04:10:00.000Z",
+        // Read reached Google and reported no quota window at all: this is a
+        // genuine zero, so it must still pull the pool average down.
+        noQuota: "该账号没有 Gemini 额度"
+      }
+    ];
+
+    const pool = aggregateGeminiPool(accounts, now);
+
+    // (0.4 + 0) / 2 = 0.2, not 0.4 as it would be if acc2 were excluded.
+    expect(pool?.fiveHour?.remainingFraction).toBeCloseTo(0.2);
+    expect(pool?.weekly?.remainingFraction).toBeCloseTo(0.4);
+    // The excluded-account case must not surface a pool-level failure either.
+    expect(pool?.failure).toBeUndefined();
+  });
+
+  it("leaves out accounts whose read failed entirely", () => {
+    const accounts: AccountGeminiReading[] = [
+      {
+        id: "acc1",
+        email: "user1@gmail.com",
+        queriedAt: "2026-10-04T04:00:00.000Z",
+        fiveHour: { remainingFraction: 0.4, resetTime: "2026-10-04T08:00:00.000Z" },
+        weekly: { remainingFraction: 0.8, resetTime: "2026-10-10T10:00:00.000Z" }
+      },
+      {
+        id: "acc2",
+        email: "user2@gmail.com",
+        queriedAt: "2026-10-04T04:10:00.000Z",
+        // Never reached Google: quota unknown, so it must not count as zero.
+        failure: "无法连接 Google，请确认梯子已接管系统代理"
+      }
+    ];
+
+    const pool = aggregateGeminiPool(accounts, now);
+
+    expect(pool?.fiveHour?.remainingFraction).toBeCloseTo(0.4);
+    expect(pool?.weekly?.remainingFraction).toBeCloseTo(0.8);
+  });
+
   it("reloads the last reading and drops a malformed one", () => {
     const storage = new MemoryStorage();
     const reading: AntigravityReading = {

@@ -1390,6 +1390,7 @@ export default function App() {
             email: string;
             fiveHour?: GeminiWindow;
             weekly?: GeminiWindow;
+            noQuota?: string;
             error?: string;
           }>
         >("query_gemini_quota");
@@ -1408,6 +1409,7 @@ export default function App() {
               queriedAt: queryTime,
               fiveHour: q.fiveHour ?? existing?.fiveHour,
               weekly: q.weekly ?? existing?.weekly,
+              noQuota: q.noQuota,
               failure: q.error
             });
           }

@@ -155,6 +155,10 @@ pub struct GeminiAccountQueryResult {
     pub five_hour: Option<GeminiWindow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub weekly: Option<GeminiWindow>,
+    /// Set only when the read reached Google and that account simply has no
+    /// quota. The pool treats it as a real zero rather than as missing data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub no_quota: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -459,7 +463,15 @@ async fn query_single_account(
         .map_err(|_| ("Google 额度响应不是有效 JSON".to_string(), false))?;
     let (five_hour, weekly) = extract_gemini_windows(&value);
     if five_hour.is_none() && weekly.is_none() {
-        return Err(("没有返回 Gemini 额度".to_string(), false));
+        // The request succeeded; this account simply carries no quota.
+        return Ok(GeminiAccountQueryResult {
+            id: account.id.clone(),
+            email: account.email.clone(),
+            five_hour: None,
+            weekly: None,
+            no_quota: Some("该账号没有 Gemini 额度".to_string()),
+            error: None,
+        });
     }
 
     Ok(GeminiAccountQueryResult {
@@ -467,6 +479,7 @@ async fn query_single_account(
         email: account.email.clone(),
         five_hour,
         weekly,
+        no_quota: None,
         error: None,
     })
 }
@@ -500,6 +513,7 @@ pub async fn query_gemini() -> Result<Vec<GeminiAccountQueryResult>, String> {
                     email: account.email.clone(),
                     five_hour: None,
                     weekly: None,
+                    no_quota: None,
                     error: Some(err_msg),
                 });
             }
