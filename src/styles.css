@@ -192,22 +192,22 @@ button:focus-visible {
 }
 
 .tone-gpt {
-  --tone-light: rgb(233 236 240 / 82%);
-  --tone-dark: rgb(122 132 145 / 82%);
-  --tone-light-solid: #e9ecf0;
-  --tone-dark-solid: #7a8491;
-  --tone-light-soft: rgb(233 236 240 / 40%);
-  --tone-dark-soft: rgb(122 132 145 / 40%);
-  --tone-light-grad-top: rgb(248 250 252 / 92%);
-  --tone-light-grad-bottom: rgb(196 204 214 / 92%);
-  --tone-dark-grad-top: rgb(176 186 198 / 92%);
-  --tone-dark-grad-bottom: rgb(108 119 132 / 92%);
-  --tone-dim: rgb(233 236 240 / 24%);
-  --tone-lit: #f4f6f8;
-  --tone-row-light: rgb(104 114 126 / 78%);
-  --tone-row-dark: rgb(66 74 84 / 82%);
-  --tone-border-light: rgb(233 236 240 / 28%);
-  --tone-border-dark: rgb(210 214 220 / 26%);
+  --tone-light: rgb(126 231 168 / 80%);
+  --tone-dark: rgb(45 176 108 / 80%);
+  --tone-light-solid: #7ee7a8;
+  --tone-dark-solid: #2db06c;
+  --tone-light-soft: rgb(126 231 168 / 45%);
+  --tone-dark-soft: rgb(45 176 108 / 45%);
+  --tone-light-grad-top: rgb(163 240 194 / 90%);
+  --tone-light-grad-bottom: rgb(74 200 138 / 90%);
+  --tone-dark-grad-top: rgb(96 208 152 / 90%);
+  --tone-dark-grad-bottom: rgb(28 138 84 / 90%);
+  --tone-dim: rgb(126 231 168 / 24%);
+  --tone-lit: #8febaf;
+  --tone-row-light: rgb(44 128 84 / 76%);
+  --tone-row-dark: rgb(24 92 60 / 82%);
+  --tone-border-light: rgb(126 231 168 / 32%);
+  --tone-border-dark: rgb(96 210 150 / 30%);
 }
 
 .tone-claude {
@@ -230,22 +230,22 @@ button:focus-visible {
 }
 
 .tone-gemini {
-  --tone-light: rgb(126 231 168 / 80%);
-  --tone-dark: rgb(45 176 108 / 80%);
-  --tone-light-solid: #7ee7a8;
-  --tone-dark-solid: #2db06c;
-  --tone-light-soft: rgb(126 231 168 / 45%);
-  --tone-dark-soft: rgb(45 176 108 / 45%);
-  --tone-light-grad-top: rgb(163 240 194 / 90%);
-  --tone-light-grad-bottom: rgb(74 200 138 / 90%);
-  --tone-dark-grad-top: rgb(96 208 152 / 90%);
-  --tone-dark-grad-bottom: rgb(28 138 84 / 90%);
-  --tone-dim: rgb(126 231 168 / 24%);
-  --tone-lit: #8febaf;
-  --tone-row-light: rgb(44 128 84 / 76%);
-  --tone-row-dark: rgb(24 92 60 / 82%);
-  --tone-border-light: rgb(126 231 168 / 32%);
-  --tone-border-dark: rgb(96 210 150 / 30%);
+  --tone-light: rgb(233 150 226 / 82%);
+  --tone-dark: rgb(104 82 214 / 84%);
+  --tone-light-solid: #e996e2;
+  --tone-dark-solid: #6852d6;
+  --tone-light-soft: rgb(233 150 226 / 46%);
+  --tone-dark-soft: rgb(104 82 214 / 48%);
+  --tone-light-grad-top: rgb(247 190 238 / 92%);
+  --tone-light-grad-bottom: rgb(206 118 199 / 92%);
+  --tone-dark-grad-top: rgb(146 128 236 / 92%);
+  --tone-dark-grad-bottom: rgb(72 52 172 / 92%);
+  --tone-dim: rgb(233 150 226 / 26%);
+  --tone-lit: #ef9fe6;
+  --tone-row-light: rgb(122 84 176 / 78%);
+  --tone-row-dark: rgb(66 48 140 / 82%);
+  --tone-border-light: rgb(233 150 226 / 32%);
+  --tone-border-dark: rgb(168 150 238 / 32%);
 }
 
 .tone-grok {
