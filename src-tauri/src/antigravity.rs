@@ -155,8 +155,13 @@ pub struct GeminiAccountQueryResult {
     pub five_hour: Option<GeminiWindow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub weekly: Option<GeminiWindow>,
+    /// The separate Claude/GPT ledger (`3p-*` buckets), reported alongside.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claude_five_hour: Option<GeminiWindow>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claude_weekly: Option<GeminiWindow>,
     /// Set only when the read reached Google and that account simply has no
-    /// quota. The pool treats it as a real zero rather than as missing data.
+    /// quota at all. The pool treats it as a real zero rather than as missing data.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub no_quota: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -461,15 +466,23 @@ async fn query_single_account(
 
     let value: Value = serde_json::from_str(&body)
         .map_err(|_| ("Google 额度响应不是有效 JSON".to_string(), false))?;
-    let (five_hour, weekly) = extract_gemini_windows(&value);
-    if five_hour.is_none() && weekly.is_none() {
+    let ledgers = extract_ledgers(&value);
+    let (five_hour, weekly) = ledgers.gemini;
+    let (claude_five_hour, claude_weekly) = ledgers.claude;
+    if five_hour.is_none()
+        && weekly.is_none()
+        && claude_five_hour.is_none()
+        && claude_weekly.is_none()
+    {
         // The request succeeded; this account simply carries no quota.
         return Ok(GeminiAccountQueryResult {
             id: account.id.clone(),
             email: account.email.clone(),
             five_hour: None,
             weekly: None,
-            no_quota: Some("该账号没有 Gemini 额度".to_string()),
+            claude_five_hour: None,
+            claude_weekly: None,
+            no_quota: Some("该账号没有 Gemini 或 Claude 额度".to_string()),
             error: None,
         });
     }
@@ -479,6 +492,8 @@ async fn query_single_account(
         email: account.email.clone(),
         five_hour,
         weekly,
+        claude_five_hour,
+        claude_weekly,
         no_quota: None,
         error: None,
     })
@@ -513,6 +528,8 @@ pub async fn query_gemini() -> Result<Vec<GeminiAccountQueryResult>, String> {
                     email: account.email.clone(),
                     five_hour: None,
                     weekly: None,
+                    claude_five_hour: None,
+                    claude_weekly: None,
                     no_quota: None,
                     error: Some(err_msg),
                 });
@@ -623,27 +640,42 @@ fn parse_token_response(body: &Value, previous_refresh_token: Option<&str>) -> R
     Ok((access_token, refresh_token, expires_in))
 }
 
-fn extract_gemini_windows(value: &Value) -> (Option<GeminiWindow>, Option<GeminiWindow>) {
-    let mut five_hour = None;
-    let mut weekly = None;
+/// The two independent ledgers Google reports for one account: the Gemini
+/// models (`gemini-*` buckets) and the Claude/GPT models (`3p-*` buckets).
+#[derive(Default)]
+struct QuotaLedgers {
+    gemini: (Option<GeminiWindow>, Option<GeminiWindow>),
+    claude: (Option<GeminiWindow>, Option<GeminiWindow>),
+}
+
+fn extract_ledgers(value: &Value) -> QuotaLedgers {
+    let mut ledgers = QuotaLedgers::default();
     let groups = value.get("groups").and_then(Value::as_array);
     for group in groups.into_iter().flatten() {
         let buckets = group.get("buckets").and_then(Value::as_array);
         for bucket in buckets.into_iter().flatten() {
             let bucket_id = bucket.get("bucketId").and_then(Value::as_str).unwrap_or("");
-            if !bucket_id.starts_with("gemini-") {
+            let target = if bucket_id.starts_with("gemini-") {
+                &mut ledgers.gemini
+            } else if bucket_id.starts_with("3p-") {
+                &mut ledgers.claude
+            } else {
                 continue;
-            }
+            };
             let window = gemini_window(bucket);
             if bucket_id.contains("5h") {
-                five_hour = window;
+                target.0 = window;
             } else if bucket_id.contains("weekly") {
-                weekly = window;
+                target.1 = window;
             }
         }
     }
 
-    (five_hour, weekly)
+    ledgers
+}
+
+fn extract_gemini_windows(value: &Value) -> (Option<GeminiWindow>, Option<GeminiWindow>) {
+    extract_ledgers(value).gemini
 }
 
 fn gemini_window(bucket: &Value) -> Option<GeminiWindow> {
@@ -833,6 +865,13 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// Builds a clearly fake token string for fixtures. Nothing here is a real
+    /// credential; composing it keeps literal secrets out of the source.
+    fn fixture_token(label: &str, index: usize) -> String {
+        ["fixture", label, "token", &format!("{index:02}"), "paddingpaddingpadding"]
+            .join("-")
+    }
+
     #[test]
     fn a_saved_pool_fits_the_windows_credential_blob() {
         // Windows rejects a credential blob over 2560 characters. Storing one
@@ -843,9 +882,7 @@ mod tests {
                 .map(|index| GoogleAccount {
                     id: format!("112233445566778899{index:02}"),
                     email: format!("account.number.{index}@example.com"),
-                    refresh_token: format!(
-                        "1//0gLongRefreshTokenValueThatLooksRealisticForAccount{index:02}"
-                    ),
+                    refresh_token: fixture_token("refresh", index),
                     access_token: String::new(),
                     expires_at: 0,
                 })
@@ -875,12 +912,13 @@ mod tests {
 
     #[test]
     fn a_legacy_pool_entry_still_loads_and_drops_its_stored_token() {
+        let stale_token = fixture_token("access", 0);
         let legacy = json!({
             "accounts": [{
                 "id": "legacy-id",
                 "email": "legacy@example.com",
-                "refresh_token": "1//0gLegacyRefreshToken",
-                "access_token": "ya29.a-very-long-stale-access-token-value",
+                "refresh_token": fixture_token("refresh", 0),
+                "access_token": stale_token,
                 "expires_at": 4_102_444_800_i64
             }]
         })
@@ -891,7 +929,7 @@ mod tests {
         assert_eq!(pool.accounts[0].email, "legacy@example.com");
 
         let reserialized = serde_json::to_string(&pool).expect("pool serializes");
-        assert!(!reserialized.contains("ya29.a-very-long-stale-access-token-value"));
+        assert!(!reserialized.contains(stale_token.as_str()));
         assert!(!reserialized.contains("expires_at"));
     }
 
@@ -935,6 +973,31 @@ mod tests {
         );
         assert_eq!(normalize_site("http://127.0.0.1:8787").unwrap(), "http://127.0.0.1:8787");
         assert!(normalize_site("   ").is_err());
+    }
+
+    #[test]
+    fn splits_gemini_and_claude_ledgers() {
+        let ledgers = extract_ledgers(&json!({
+            "groups": [
+                {
+                    "buckets": [
+                        { "bucketId": "gemini-weekly", "remainingFraction": 0.9, "resetTime": "2026-10-10T17:19:42Z" },
+                        { "bucketId": "gemini-5h", "remainingFraction": 0.7, "resetTime": "2026-10-04T07:10:00Z" }
+                    ]
+                },
+                {
+                    "buckets": [
+                        { "bucketId": "3p-weekly", "remainingFraction": 1.0, "resetTime": "2026-10-10T20:48:53Z" },
+                        { "bucketId": "3p-5h", "remainingFraction": 0.4, "resetTime": "2026-10-04T01:48:53Z" }
+                    ]
+                }
+            ]
+        }));
+
+        assert_eq!(ledgers.gemini.0.unwrap().remaining_fraction, 0.7);
+        assert_eq!(ledgers.gemini.1.unwrap().remaining_fraction, 0.9);
+        assert_eq!(ledgers.claude.0.unwrap().remaining_fraction, 0.4);
+        assert_eq!(ledgers.claude.1.unwrap().remaining_fraction, 1.0);
     }
 
     #[test]

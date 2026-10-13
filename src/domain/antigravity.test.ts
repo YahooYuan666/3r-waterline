@@ -172,6 +172,56 @@ it("drops the five-hour window when every account is weekly-exhausted", () => {
     expect(pool?.weekly?.remainingFraction).toBeCloseTo(0);
   });
 
+it("aggregates the Claude ledger independently from Gemini", () => {
+    const accounts: AccountGeminiReading[] = [
+      {
+        id: "acc1",
+        email: "user1@gmail.com",
+        queriedAt: "2026-10-04T04:00:00.000Z",
+        fiveHour: { remainingFraction: 0.2, resetTime: "2026-10-04T08:00:00.000Z" },
+        weekly: { remainingFraction: 0.4, resetTime: "2026-10-10T10:00:00.000Z" },
+        claudeFiveHour: { remainingFraction: 1, resetTime: "2026-10-04T06:00:00.000Z" },
+        claudeWeekly: { remainingFraction: 1, resetTime: "2026-10-09T10:00:00.000Z" }
+      },
+      {
+        id: "acc2",
+        email: "user2@gmail.com",
+        queriedAt: "2026-10-04T04:10:00.000Z",
+        fiveHour: { remainingFraction: 0.6, resetTime: "2026-10-04T09:00:00.000Z" },
+        weekly: { remainingFraction: 0.8, resetTime: "2026-10-11T10:00:00.000Z" },
+        claudeFiveHour: { remainingFraction: 0.5, resetTime: "2026-10-04T05:00:00.000Z" },
+        claudeWeekly: { remainingFraction: 0.6, resetTime: "2026-10-08T10:00:00.000Z" }
+      }
+    ];
+
+    const gemini = aggregateGeminiPool(accounts, now, "gemini");
+    const claude = aggregateGeminiPool(accounts, now, "claude");
+
+    expect(gemini?.fiveHour?.remainingFraction).toBeCloseTo(0.4);
+    expect(gemini?.weekly?.remainingFraction).toBeCloseTo(0.6);
+    expect(claude?.fiveHour?.remainingFraction).toBeCloseTo(0.75);
+    expect(claude?.weekly?.remainingFraction).toBeCloseTo(0.8);
+    // Earliest reset is taken per ledger, not across both.
+    expect(claude?.fiveHour?.resetTime).toBe("2026-10-04T05:00:00.000Z");
+  });
+
+it("reports an empty Claude ledger when no account reports one", () => {
+    const accounts: AccountGeminiReading[] = [
+      {
+        id: "acc1",
+        email: "user1@gmail.com",
+        queriedAt: "2026-10-04T04:00:00.000Z",
+        fiveHour: { remainingFraction: 0.5 },
+        weekly: { remainingFraction: 0.5 }
+      }
+    ];
+
+    const claude = aggregateGeminiPool(accounts, now, "claude");
+
+    expect(claude?.fiveHour?.remainingFraction).toBeCloseTo(0);
+    expect(claude?.weekly?.remainingFraction).toBeCloseTo(0);
+  });
+
 it("leaves out accounts whose read failed entirely", () => {
     const accounts: AccountGeminiReading[] = [
       {

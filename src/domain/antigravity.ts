@@ -3,23 +3,47 @@ export interface GeminiWindow {
   resetTime?: string;
 }
 
-export interface AntigravityReading {
-  queriedAt: string;
+/** One ledger's two windows, as Google reports them for a single account. */
+export interface QuotaLedger {
   fiveHour?: GeminiWindow;
   weekly?: GeminiWindow;
+}
+
+export interface AntigravityReading extends QuotaLedger {
+  queriedAt: string;
   failure?: string;
 }
 
-export interface AccountGeminiReading {
+export interface AccountGeminiReading extends QuotaLedger {
   id: string;
   email: string;
   queriedAt: string;
-  fiveHour?: GeminiWindow;
-  weekly?: GeminiWindow;
+  /** The separate Claude/GPT ledger (`3p-*` buckets). */
+  claudeFiveHour?: GeminiWindow;
+  claudeWeekly?: GeminiWindow;
   /** Google answered and this account carries no quota: a real zero. */
   noQuota?: string;
   /** The read never reached Google: the quota is unknown. */
   failure?: string;
+}
+
+export type LedgerKind = "gemini" | "claude";
+
+export function ledgerOf(
+  account: AccountGeminiReading,
+  ledger: LedgerKind
+): QuotaLedger {
+  if (ledger === "claude") {
+    return {
+      ...(account.claudeFiveHour ? { fiveHour: account.claudeFiveHour } : {}),
+      ...(account.claudeWeekly ? { weekly: account.claudeWeekly } : {})
+    };
+  }
+
+  return {
+    ...(account.fiveHour ? { fiveHour: account.fiveHour } : {}),
+    ...(account.weekly ? { weekly: account.weekly } : {})
+  };
 }
 
 export const GEMINI_READING_KEY = "3r-waterline-gemini-reading";
@@ -104,30 +128,33 @@ export function accountShortName(email: string): string {
  */
 export function aggregateGeminiPool(
   accounts: AccountGeminiReading[],
-  _now: Date = new Date()
+  _now: Date = new Date(),
+  ledger: LedgerKind = "gemini"
 ): AntigravityReading | null {
   if (accounts.length === 0) {
     return null;
   }
 
+  const entries = accounts.map((acc) => ({ account: acc, window: ledgerOf(acc, ledger) }));
+
   // A spent weekly window means the account is unusable, so its reported
   // five-hour figure is not real headroom and is left out of that average.
-  const fiveHourAccounts = accounts.filter(
-    (acc) => !readFailed(acc) && !isExhausted(acc.weekly)
+  const fiveHourAccounts = entries.filter(
+    ({ account, window }) => !readFailed(account) && !isExhausted(window.weekly)
   );
-  const weeklyAccounts = accounts.filter(
-    (acc) => acc.weekly != null || !readFailed(acc)
+  const weeklyAccounts = entries.filter(
+    ({ account, window }) => window.weekly != null || !readFailed(account)
   );
 
   let fiveHourWindow: GeminiWindow | undefined;
   if (fiveHourAccounts.length > 0) {
     const total = fiveHourAccounts.reduce(
-      (sum, acc) => sum + (acc.fiveHour?.remainingFraction ?? 0),
+      (sum, { window }) => sum + (window.fiveHour?.remainingFraction ?? 0),
       0
     );
     const avgFraction = total / fiveHourAccounts.length;
     const earliestReset = findEarliestResetTime(
-      fiveHourAccounts.map((acc) => acc.fiveHour?.resetTime)
+      fiveHourAccounts.map(({ window }) => window.fiveHour?.resetTime)
     );
     fiveHourWindow = {
       remainingFraction: avgFraction,
@@ -138,12 +165,12 @@ export function aggregateGeminiPool(
   let weeklyWindow: GeminiWindow | undefined;
   if (weeklyAccounts.length > 0) {
     const total = weeklyAccounts.reduce(
-      (sum, acc) => sum + (acc.weekly?.remainingFraction ?? 0),
+      (sum, { window }) => sum + (window.weekly?.remainingFraction ?? 0),
       0
     );
     const avgFraction = total / weeklyAccounts.length;
     const earliestReset = findEarliestResetTime(
-      weeklyAccounts.map((acc) => acc.weekly?.resetTime)
+      weeklyAccounts.map(({ window }) => window.weekly?.resetTime)
     );
     weeklyWindow = {
       remainingFraction: avgFraction,

@@ -36,11 +36,13 @@ import {
   readingHasWindows,
   resetCountdown,
   saveGeminiPool,
+  ledgerOf,
   SHOW_INDIVIDUAL_GEMINI_KEY,
   SITE_KEY,
   type AccountGeminiReading,
   type AntigravityReading,
-  type GeminiWindow
+  type GeminiWindow,
+  type LedgerKind
 } from "./domain/antigravity";
 
 function formatMoney(money: Money, fractionDigits = 2) {
@@ -290,7 +292,9 @@ modelColors = false
       : undefined;
   const modelTone = modelColors
     ? viewingGemini
-      ? "gemini"
+      ? geminiCardTitle?.startsWith("Claude") === true
+        ? "claude"
+        : "gemini"
       : modelToneFor(selectedSubscription?.name)
     : "classic";
   const canLogin =
@@ -755,6 +759,19 @@ export function classifyNativeReadError(error: unknown): Error {
   }
 
   return error instanceof Error ? error : new Error(message || "无法读取 3R 订阅信息");
+}
+
+function toReading(
+  account: AccountGeminiReading,
+  ledger: LedgerKind
+): AntigravityReading {
+  const window = ledgerOf(account, ledger);
+  return {
+    queriedAt: account.queriedAt,
+    ...(window.fiveHour ? { fiveHour: window.fiveHour } : {}),
+    ...(window.weekly ? { weekly: window.weekly } : {}),
+    ...(account.noQuota != null ? {} : account.failure ? { failure: account.failure } : {})
+  };
 }
 
 function createNativeSubscriptionsPageReader() {
@@ -1320,17 +1337,25 @@ export default function App() {
   }, [state.subscriptions]);
 
   const hasGeminiData = googleAccounts.length > 0 || geminiPool.length > 0;
-  const poolReading = useMemo(
-    () => aggregateGeminiPool(geminiPool, geminiNow),
+  const geminiPoolReading = useMemo(
+    () => aggregateGeminiPool(geminiPool, geminiNow, "gemini"),
     [geminiPool, geminiNow]
+  );
+  const claudePoolReading = useMemo(
+    () => aggregateGeminiPool(geminiPool, geminiNow, "claude"),
+    [geminiPool, geminiNow]
+  );
+  const hasClaudeData = geminiPool.some(
+    (acc) => acc.claudeFiveHour != null || acc.claudeWeekly != null
   );
 
   const availablePages = useMemo(() => {
     const pages: Array<{
       id: string;
-      type: "3r" | "gemini-pool" | "gemini-account";
+      type: "3r" | "gemini-pool" | "gemini-account" | "claude-pool" | "claude-account";
       geminiCardTitle?: string;
       geminiReading?: AntigravityReading | null;
+      ledger?: LedgerKind;
     }> = supportedSubscriptions.map((sub) => ({ id: sub.id, type: "3r" }));
 
     if (hasGeminiData) {
@@ -1338,8 +1363,18 @@ export default function App() {
         id: "gemini-pool",
         type: "gemini-pool",
         geminiCardTitle: "Gemini 号池",
-        geminiReading: poolReading
+        geminiReading: geminiPoolReading
       });
+
+      if (hasClaudeData) {
+        pages.push({
+          id: "claude-pool",
+          type: "claude-pool",
+          geminiCardTitle: "Claude 号池",
+          geminiReading: claudePoolReading,
+          ledger: "claude"
+        });
+      }
 
       if (showIndividualGemini && geminiPool.length > 0) {
         for (const acc of geminiPool) {
@@ -1349,12 +1384,30 @@ export default function App() {
             geminiCardTitle: `Gemini (${accountShortName(acc.email)})`,
             geminiReading: acc
           });
+
+          if (acc.claudeFiveHour != null || acc.claudeWeekly != null) {
+            pages.push({
+              id: `claude-acc-${acc.id}`,
+              type: "claude-account",
+              geminiCardTitle: `Claude (${accountShortName(acc.email)})`,
+              geminiReading: toReading(acc, "claude"),
+              ledger: "claude"
+            });
+          }
         }
       }
     }
 
     return pages;
-  }, [hasGeminiData, geminiPool, poolReading, showIndividualGemini, supportedSubscriptions]);
+  }, [
+    claudePoolReading,
+    geminiPoolReading,
+    geminiPool,
+    hasClaudeData,
+    hasGeminiData,
+    showIndividualGemini,
+    supportedSubscriptions
+  ]);
 
   const currentPage = useMemo(() => {
     if (activeGeminiPageId != null) {
@@ -1422,6 +1475,8 @@ export default function App() {
             email: string;
             fiveHour?: GeminiWindow;
             weekly?: GeminiWindow;
+            claudeFiveHour?: GeminiWindow;
+            claudeWeekly?: GeminiWindow;
             noQuota?: string;
             error?: string;
           }>
@@ -1441,6 +1496,8 @@ export default function App() {
               queriedAt: queryTime,
               fiveHour: q.fiveHour ?? existing?.fiveHour,
               weekly: q.weekly ?? existing?.weekly,
+              claudeFiveHour: q.claudeFiveHour ?? existing?.claudeFiveHour,
+              claudeWeekly: q.claudeWeekly ?? existing?.claudeWeekly,
               noQuota: q.noQuota,
               failure: q.error
             });
@@ -1822,7 +1879,7 @@ export default function App() {
               />
             </label>
             <label className="settings-toggle">
-              <span>显示单个 Gemini 账号</span>
+              <span>显示单个账号卡片</span>
               <input
                 type="checkbox"
                 checked={showIndividualGemini}
